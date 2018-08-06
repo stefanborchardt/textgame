@@ -1,0 +1,10 @@
+extends layout
+
+block content
+	h1= title
+	p Welcome to #{title}
+
+	ul(id='messages')
+	form(action='')
+		input(type='text' id='m')
+		button Send

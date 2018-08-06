@@ -1,0 +1,89 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var theApp = require('../app');
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+var port = theApp.app.get('port')
+
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+theApp.server.listen(port);
+theApp.server.on('error', onError);
+
+
+/**
+ * Create HTTP server and app for HTTPS redirect.
+ */
+var express = require('express');
+var http = require('http');
+var httpApp = express();
+var httpRouter = express.Router();
+httpApp.use('*', httpRouter);
+httpRouter.get('*', function(req, res) {
+    var host = req.get('Host');
+    // replace the port in the host
+    host = host.replace(/:\d+$/, ":" + port);
+    var destination = ['https://', host, req.url].join('');
+    return res.redirect(destination);
+});
+var httpServer = http.createServer(httpApp);
+httpServer.listen(8080);
+
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTPS server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
