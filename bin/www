@@ -6,17 +6,13 @@
 
 var theApp = require('../app');
 
-/**
- * Get port from environment and store in Express.
- */
-
-var port = theApp.app.get('port')
+var securePort = theApp.config.get('https.port')
 
 /**
  * Listen on provided port, on all network interfaces.
  */
 
-theApp.server.listen(port);
+theApp.server.listen(securePort);
 theApp.server.on('error', onError);
 
 
@@ -31,12 +27,12 @@ httpApp.use('*', httpRouter);
 httpRouter.get('*', function(req, res) {
     var host = req.get('Host');
     // replace the port in the host
-    host = host.replace(/:\d+$/, ":" + port);
+    host = host.replace(/:\d+$/, ":" + securePort);
     var destination = ['https://', host, req.url].join('');
     return res.redirect(destination);
 });
 var httpServer = http.createServer(httpApp);
-httpServer.listen(8080);
+httpServer.listen(theApp.config.get('http.port'));
 
 
 /**

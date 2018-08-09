@@ -65,3 +65,4 @@ package-lock.json
 .eslintrc.js
 sslcert/textga.me_ssl_certificate.cer
 sslcert/textga.me_private_key.key
+config/+default.properties

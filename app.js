@@ -1,10 +1,11 @@
 var createError = require('http-errors');
 var express = require('express');
 var path = require('path');
-var cookieParser = require('cookie-parser');
 var reqLogger = require('morgan');
-
+var session = require('express-session');
+var MemoryStore = require('memorystore')(session)
 var Primus = require('primus');
+let config = require('config')
 
 
 var winston = require('winston');
@@ -29,21 +30,12 @@ var app = express();
 var https = require('https');
 const fs = require('fs');
 const options = {
-	cert: fs.readFileSync('./sslcert/textga.me_ssl_certificate.cer'),
-	key: fs.readFileSync('./sslcert/textga.me_private_key.key'),
+	cert: fs.readFileSync(config.get('ssl.certificate')),
+	key: fs.readFileSync(config.get('ssl.key')),
 	rejectUnauthorized: false
 };
 
 var server = https.createServer(options, app);
-logger.info('server');
-
-/**
- * Create Websocket server.
- */
-// var webSocket = require('ws');
-// var wsServer = new webSocket.Server({
-// 	server
-// });
 
 primus = new Primus(server, {
 	transformer: 'websockets',
@@ -51,20 +43,34 @@ primus = new Primus(server, {
 	parser: 'json'
 });
 
+// enable once for client JS creation
 //primus.save("public/javascripts/primus.js");
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
-app.set('port', 3000);
+app.set('port', config.get('https.port'));
 
 app.use(reqLogger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({
 	extended: false
 }));
-app.use(cookieParser());
+
 app.use(express.static(path.join(__dirname, 'public')));
+
+// for authentication we use a session cookie with an TTL of 1 hour
+app.use(session({
+  resave: false, // don't save session if unmodified
+  saveUninitialized: false, // don't create session until something stored
+  secret: config.get('session.secret'),
+  cookie: { secure: true, maxAge: 3600000, sameSite: 'strict' },
+  store: new MemoryStore({
+      checkPeriod: 2*3600000 // prune expired entries every 2h
+    }),
+}));
+
+//===============================================================
 
 // simple ws
 primus.on('connection', function connection(spark) {
@@ -77,13 +83,30 @@ primus.on('connection', function connection(spark) {
   spark.write('Hello world');
 });
 
+//===============================================================
 
 var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
+var loginRouter = require('./routes/login');
 
-// catch 404 and forward to error handler
+app.use('/', indexRouter);
+app.use('/login', loginRouter);
+
+// when the index router detects an unauthenticated user it redirects 
+// to the login page. after sending the login form, we do a basic authentication here
+app.post('/login', function(req, res){
+	logger.info(config.get('login.password'));
+  if (config.get('login.password') == req.body.pwd) {
+      req.session.regenerate(function(){
+        req.session.user = 'yes';
+        res.redirect('/');
+      });
+    } else {
+      res.redirect('/login');
+    }
+
+});
+
+// no router found, 404 and forward to error handler
 app.use(function(req, res, next) {
 	next(createError(404));
 });
@@ -101,5 +124,6 @@ app.use(function(err, req, res, next) {
 
 module.exports = {
 	app: app,
-	server: server
+	server: server,
+	config: config
 };
