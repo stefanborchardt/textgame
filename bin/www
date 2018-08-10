@@ -25,11 +25,11 @@ var httpApp = express();
 var httpRouter = express.Router();
 httpApp.use('*', httpRouter);
 httpRouter.get('*', function(req, res) {
-    var host = req.get('Host');
-    // replace the port in the host
-    host = host.replace(/:\d+$/, ":" + securePort);
-    var destination = ['https://', host, req.url].join('');
-    return res.redirect(destination);
+  var host = req.get('Host');
+  // replace the port in the host
+  host = host.replace(/:\d+$/, ":" + securePort);
+  var destination = ['https://', host, req.url].join('');
+  return res.redirect(destination);
 });
 var httpServer = http.createServer(httpApp);
 httpServer.listen(theApp.config.get('http.port'));
@@ -64,9 +64,9 @@ function onError(error) {
     throw error;
   }
 
-  var bind = typeof port === 'string'
-    ? 'Pipe ' + securePort
-    : 'Port ' + securePort;
+  var bind = typeof port === 'string' ?
+    'Pipe ' + securePort :
+    'Port ' + securePort;
 
   // handle specific listen errors with friendly messages
   switch (error.code) {
@@ -82,4 +82,3 @@ function onError(error) {
       throw error;
   }
 }
-
