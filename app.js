@@ -1,13 +1,12 @@
-var createError = require('http-errors');
-var express = require('express');
+const express = require('express');
 const helmet = require('helmet')
-var path = require('path');
-var reqLogger = require('morgan');
-var session = require('express-session');
-var MemoryStore = require('memorystore')(session)
-var Primus = require('primus');
-let config = require('config')
-var winston = require('winston');
+const path = require('path');
+const reqLogger = require('morgan');
+const session = require('express-session');
+const MemoryStore = require('memorystore')(session)
+const Primus = require('primus');
+const config = require('config')
+const winston = require('winston');
 const logger = winston.createLogger({
 	transports: [
 		new winston.transports.File({
@@ -105,17 +104,20 @@ app.post('/login', function(req, res) {
 
 // no router found, 404 and forward to error handler
 app.use(function(req, res, next) {
-	next(createError(404));
+	res.status(404);
+	res.render('error', {
+		message: 'Not found',
+		status: 404
+	});
 });
 
 // error handler
 app.use(function(err, req, res, next) {
-	// set locals, only providing error in development
-	res.locals.message = err.message;
-	res.locals.error = req.app.get('env') === 'development' ? err : {};
-	// render the error page
 	res.status(err.status || 500);
-	res.render('error');
+	res.render('error', {
+		message: err.message,
+		status: err.status || 500
+	});
 });
 
 module.exports = {
