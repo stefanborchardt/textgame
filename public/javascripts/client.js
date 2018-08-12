@@ -28,6 +28,7 @@ $('#send').on("click", function(event) {
     primus.write(JSON.stringify({
         txt: $('#box').val()
     }));
+    $('#box').val("");
 
 });
 

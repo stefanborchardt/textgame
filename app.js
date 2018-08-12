@@ -36,8 +36,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(helmet());
 
 // for authentication we use a session cookie with an TTL of 1 hour
+const maxAge = parseInt(config.get('cookie.maxage'));
 const sessionStore = new MemoryStore({
-	checkPeriod: 2 * 3600000 // prune expired entries every 2h
+	checkPeriod: 2 * maxAge // prune expired entries every 2h
 });
 app.use(session({
 	resave: false,
@@ -45,7 +46,7 @@ app.use(session({
 	secret: config.get('session.secret'),
 	cookie: {
 		secure: true,
-		maxAge: 3600000,
+		maxAge: maxAge,
 		sameSite: 'strict'
 	},
 	store: sessionStore
