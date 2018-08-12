@@ -31,18 +31,35 @@ var tg = function connection(spark) {
 	// we have the sessionStore as store  
 	let storedSid = this.store.get(reqSid);
 
+	var pairedWith;
 	if (undefined == storedSid) {
 		// client with old sessionid reconnecting 
-		// close connection
-		spark.end();
-		return;
+		// because we only have the sid here, we have to fill the gaps
+		// to obtain an acceptable entry in the session store
+		pairedWith = 'noone';
+		this.store.set(reqSid, JSON.stringify({
+			cookie: {
+				originalMaxAge: 3600000,
+				expires: new Date(Date.now() + 3600000).toISOString(),
+				secure: true,
+				httpOnly: true,
+				path: "/",
+				sameSite: "strict"
+			},
+			pairedWith: pairedWith
+		}), 7200000);
+	} else {
+
+		pairedWith = JSON.parse(storedSid).pairedWith;
 	}
 
-	var obj = JSON.parse(storedSid).user;
-	
+	if (this.store.length > 1) {
+
+	}
+
 	spark.write({
 		msg: 'welcome',
-		sid: reqSid
+		sid: reqSid + pairedWith
 	});
 
 	spark.on('data', function data(packet) {
@@ -52,7 +69,7 @@ var tg = function connection(spark) {
 		if (data.hasOwnProperty('txt')) {
 			spark.write({
 				txt: data.txt,
-				sid: reqSid
+				sid: reqSid + pairedWith
 			});
 		} else if (data.hasOwnProperty('msg')) {
 

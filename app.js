@@ -40,7 +40,7 @@ const sessionStore = new MemoryStore({
 	checkPeriod: 2 * 3600000 // prune expired entries every 2h
 });
 app.use(session({
-	resave: false, // don't save session if unmodified
+	resave: false,
 	saveUninitialized: false, // don't create session until something stored
 	secret: config.get('session.secret'),
 	cookie: {
@@ -76,10 +76,8 @@ app.use('/login', loginRouter);
 // to the login page. after sending the login form, we do a basic authentication here
 app.post('/login', function(req, res) {
 	if (config.get('login.password') == req.body.pwd) {
-		req.session.regenerate(function() {
-			req.session.user = 'yes'; // so that session will be kept in store
-			res.redirect('/');
-		});
+		req.session.pairedWith = 'noone'; 
+		res.redirect('/');
 	} else {
 		res.redirect('/login');
 	}

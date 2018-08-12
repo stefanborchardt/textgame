@@ -4,7 +4,7 @@ var router = express.Router();
 
 
 router.get('/', function(req, res, next) {
-	if (req.session.user) {
+	if (req.session.pairedWith) {
 		res.render('index', {
 			title: 'Textgame'
 		});

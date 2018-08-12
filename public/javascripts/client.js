@@ -23,6 +23,8 @@ primus.on('data', function incoming(data) {
 
 
 $('#send').on("click", function(event) {
+
+
     primus.write(JSON.stringify({
         txt: $('#box').val()
     }));
