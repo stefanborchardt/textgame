@@ -17,6 +17,9 @@ const crypto = require('crypto');
 
 // Extract session ID from the cookie string
 const extractSid = function(cookie) {
+	if (undefined == cookie) {
+		return null;
+	}
 	let indexEq = cookie.indexOf('=');
 	let indexDot = cookie.indexOf('.', indexEq);
 	return cookie.substring(indexEq + 5, indexDot);
@@ -53,7 +56,7 @@ const findPartnerSpark = function(sprk, partnerSid) {
 	sprk.primus.forEach((spk, spkId, cons) => {
 		if (null == partnerSpark) {
 			if (spkId != sprk.id) {
-				let otherSid = extractSid(spk.headers.cookie)
+				let otherSid = extractSid(spk.headers.cookie);
 				if (partnerSid == otherSid) {
 					partnerSpark = spk;
 				}
@@ -138,6 +141,10 @@ var tg = function connection(spark) {
 	// expiration of session can be configured in the properties
 	// a user session can span multiple sparks (websocket connections)
 	let reqSid = extractSid(spark.headers.cookie)
+	if (null == reqSid) {
+		writeMsg(spark, 'needscookies', "");
+		return;
+	}
 	let jStoredSid = JSON.parse(syncSession(reqSid, sessionStore));
 
 	writeMsg(spark, 'welcome', reqSid + "//" + spark.id);
