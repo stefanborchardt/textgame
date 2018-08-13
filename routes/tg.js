@@ -1,3 +1,5 @@
+'use strict';
+
 const config = require('config');
 const maxAge = parseInt(config.get('cookie.maxage'));
 
@@ -14,7 +16,7 @@ const crypto = require('crypto');
 
 
 // Extract session ID from the cookie string
-function extractSid(cookie) {
+const extractSid = function(cookie) {
 	let indexEq = cookie.indexOf('=');
 	let indexDot = cookie.indexOf('.', indexEq);
 	return cookie.substring(indexEq + 5, indexDot);
@@ -22,7 +24,7 @@ function extractSid(cookie) {
 
 // check sessionID against sessionStore and
 // return 'noone' or SID of former partner
-function syncSession(reqSid, sStore) {
+const syncSession = function(reqSid, sStore) {
 	let storedSid = sStore.get(reqSid);
 	if (undefined != storedSid) {
 		return storedSid;
@@ -45,31 +47,12 @@ function syncSession(reqSid, sStore) {
 
 }
 
-// finds another user without partner and 
-// sets current requester as other user's partner
-function findPartnerBySession(spk, reqSid, sStore) {
-	let foundPartner = "";
-	sStore.rforEach((val, key, cache) => {
-		if ("" == foundPartner) {
-			let jVal = JSON.parse(val);
-			let pw = jVal.pairedWith;
-			if ("noone" == pw && reqSid != key) {
-				foundPartner = key;
-				jVal.pairedWith = reqSid;
-				jVal.partnerSpkId = spk.id;
-				sStore.set(key, JSON.stringify(jVal), maxAge);;
-			}
-		}
-	});
-	return foundPartner;
-}
-
 // find the spark for the partner session ID
-function findPartnerSpark(sprk, partnerSid) {
+const findPartnerSpark = function(sprk, partnerSid) {
 	let partnerSpark = null;
-	sprk.primus.forEach((spk, id, cons) => {
+	sprk.primus.forEach((spk, spkId, cons) => {
 		if (null == partnerSpark) {
-			if (id != sprk.id) {
+			if (spkId != sprk.id) {
 				let otherSid = extractSid(spk.headers.cookie)
 				if (partnerSid == otherSid) {
 					partnerSpark = spk;
@@ -80,11 +63,39 @@ function findPartnerSpark(sprk, partnerSid) {
 	return partnerSpark;
 }
 
+// finds another user without partner and 
+// sets current requester as other user's partner
+const findPartnerCheckConnection = function(spk, reqSid, jStrSid, sStore) {
+	// iterate sessions
+	let foundPartner = null;
+	sStore.rforEach((session, sessId, cache) => {
+		if (null == foundPartner) {
+			let jSession = JSON.parse(session);
+			let pw = jSession.pairedWith;
+			if ("noone" == pw && reqSid != sessId) {
+				// found unpaired session, check if connected
+				let partnerSpark = findPartnerSpark(spk, sessId);
+				if (null != partnerSpark) {
+					foundPartner = {};
+					foundPartner.sessionId = sessId;
+					foundPartner.spark = partnerSpark;
+					foundPartner.sparkId = partnerSpark.id;
+
+					jSession.pairedWith = reqSid;
+					jSession.partnerSpkId = spk.id;
+					sStore.set(sessId, JSON.stringify(jSession), maxAge);
+				}
+			}
+		}
+	});
+	return foundPartner;
+}
+
 // find the spark of the partner 
 // after a connection has been established
 // returns null if not paired in session store
 // or partner not in primus connections
-function getPartnerSpark(sprk, sStore) {
+const getPartnerSpark = function(sprk, sStore) {
 	let ownSid = extractSid(sprk.headers.cookie);
 	let jOwnSid = JSON.parse(syncSession(ownSid, sStore));
 
@@ -106,82 +117,56 @@ function getPartnerSpark(sprk, sStore) {
 }
 
 // reset pairedWith and partnerSpkId for session ID  in store
-function resetSessionPartner(jStSid, reqSid, sStore) {
+const resetSessionPartner = function(jStSid, reqSid, sStore) {
 	jStSid.pairedWith = "noone";
 	jStSid.partnerSpkId = "";
 	sStore.set(reqSid, JSON.stringify(jStSid), maxAge);
+}
+
+const writeMsg = function(sprk, text, info) {
+	sprk.write({
+		msg: text,
+		sid: info
+	});
 }
 //======================================================
 
 var tg = function connection(spark) {
 	// we have the sessionStore as 'this.store'  
 	const sessionStore = this.store;
+	// we use the browser session to identify a user
+	// expiration of session can be configured in the properties
+	// a user session can span multiple sparks (websocket connections)
 	let reqSid = extractSid(spark.headers.cookie)
-
-	
 	let jStoredSid = JSON.parse(syncSession(reqSid, sessionStore));
 
-	spark.write({
-		msg: 'welcome',
-		sid: reqSid + "//" + spark.id
-	});
+	writeMsg(spark, 'welcome', reqSid + "//" + spark.id);
 
 	if ("noone" == jStoredSid.pairedWith) {
 		// new connection or server restart
-		// find new partner
-		spark.write({
-			msg: 'find',
-			sid: reqSid + spark.id
-		});
+		// going to find new partner
+		writeMsg(spark, 'finding...', reqSid + spark.id);
 	} else {
 		// unexpired session connecting again
-		// check if former partner is still there
-		spark.write({
-			msg: 'retrieve',
-			sid: ""
-		});
+		// going to check if former partner is still there
+		writeMsg(spark, 'retrieving...', "");
 	}
 
+	let foundPartner = findPartnerCheckConnection(spark, reqSid, jStoredSid, sessionStore);
 
-	let foundPartner = findPartnerBySession(spark, reqSid, sessionStore);
+	if (null != foundPartner) {
+		// it's a match
+		jStoredSid.pairedWith = foundPartner.sessionId;
+		jStoredSid.partnerSpkId = foundPartner.sparkId;
+		sessionStore.set(reqSid, JSON.stringify(jStoredSid), maxAge);
 
-	if ("" != foundPartner) {
-
-		let partnerSpark = findPartnerSpark(spark, foundPartner);
-
-		if (null != partnerSpark) {
-
-			jStoredSid.pairedWith = foundPartner;
-			jStoredSid.partnerSpkId = partnerSpark.id;
-			sessionStore.set(reqSid, JSON.stringify(jStoredSid), maxAge);
-
-			spark.write({
-				msg: 'FOUND',
-				sid: reqSid + "//" + spark.id + "//" + foundPartner + "//" + partnerSpark
-			});
-			partnerSpark.write({
-				msg: 'FOUND',
-				sid: foundPartner + "//" + partnerSpark.id + "//" + reqSid + "//" + spark.id
-			});
-
-		} else {
-			// session without socket
-			resetSessionPartner(jStoredSid, reqSid, sessionStore);
-			// TODO maybe reset partner session 
-			spark.write({
-				msg: 'waitpartnersparknotfound',
-				sid: reqSid + "//" + spark.id + "//" + foundPartner
-			});
-		}
+		writeMsg(spark, 'FOUND', foundPartner.sessionId + "//" + foundPartner.sparkId);
+		writeMsg(foundPartner.spark, 'FOUND', reqSid + "//" + spark.id);
 	} else {
-		// reset in case of retrieved session where partner has expired
+		// reset in case of a retrieved session where partner has expired
 		resetSessionPartner(jStoredSid, reqSid, sessionStore);
-
 		// no partner found yet
-		spark.write({
-			msg: 'waitnotfound',
-			sid: ""
-		});
+		writeMsg(spark, 'waitforpartner', "");
 	}
 
 
@@ -199,15 +184,16 @@ var tg = function connection(spark) {
 			if (null != pSpark) {
 				pSpark.write({
 					txt: data.txt,
-					sid: reqSid + jStoredSid.pairedWith
+					sid: spark.id
+				});
+				spark.write({
+					txt: data.txt,
+					sid: spark.id
 				});
 			} else {
 				// lost connection
 				resetSessionPartner(jStoredSid, reqSid, sessionStore);
-				spark.write({
-					msg: 'waitpartnernotfound',
-					sid: ""
-				});
+				writeMsg(spark, 'waitpartnernotfound', "");
 			}
 		} else if (data.hasOwnProperty('msg')) {
 

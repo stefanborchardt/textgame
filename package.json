@@ -32,6 +32,7 @@
         "primus": "^7.2.2",
         "properties": "^1.2.1",
         "pug": "^2.0.3",
+        "svg.draggable.js": "^2.2.1",
         "svg.js": "^2.6.5",
         "winston": "^3.0.0",
         "ws": "^6.0.0"
