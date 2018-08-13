@@ -1,57 +1,12 @@
 #!/usr/bin/env node
-
-/**
- * Module dependencies.
- */
-
-var theApp = require('../app');
-
-var securePort = theApp.config.get('https.port')
-
-/**
- * Listen on provided port, on all network interfaces.
- */
-
-theApp.server.listen(securePort);
-theApp.server.on('error', onError);
-
-
 /**
  * Create HTTP server and app for HTTPS redirect.
  */
-var express = require('express');
-var http = require('http');
-var httpApp = express();
-var httpRouter = express.Router();
-httpApp.use('*', httpRouter);
-httpRouter.get('*', function(req, res) {
-  var destination = "https://" + req.hostname + ":" + securePort + req.url;
-  debugger;
-  return res.redirect(destination);
-});
-var httpServer = http.createServer(httpApp);
-httpServer.listen(theApp.config.get('http.port'));
+const express = require('express');
+const http = require('http');
+const theApp = require('../app');
 
-
-/**
- * Normalize a port into a number, string, or false.
- */
-
-function normalizePort(val) {
-  var port = parseInt(val, 10);
-
-  if (isNaN(port)) {
-    // named pipe
-    return val;
-  }
-
-  if (port >= 0) {
-    // port number
-    return port;
-  }
-
-  return false;
-}
+const securePort = theApp.config.get('https.port');
 
 /**
  * Event listener for HTTPS server "error" event.
@@ -62,21 +17,35 @@ function onError(error) {
     throw error;
   }
 
-  var bind = typeof port === 'string' ?
-    'Pipe ' + securePort :
-    'Port ' + securePort;
+  const bind = typeof port === 'string'
+    ? `Pipe ${securePort}`
+    : `Port ${securePort}`;
 
   // handle specific listen errors with friendly messages
   switch (error.code) {
     case 'EACCES':
-      console.error(bind + ' requires elevated privileges');
+      console.error(`${bind} requires elevated privileges`);
       process.exit(1);
       break;
     case 'EADDRINUSE':
-      console.error(bind + ' is already in use');
+      console.error(`${bind} is already in use`);
       process.exit(1);
       break;
     default:
       throw error;
   }
 }
+
+
+theApp.server.listen(securePort);
+theApp.server.on('error', onError);
+
+const httpApp = express();
+const httpRouter = express.Router();
+httpApp.use('*', httpRouter);
+httpRouter.get('*', (req, res) => {
+  const destination = `https://${req.hostname}:${securePort}${req.url}`;
+  return res.redirect(destination);
+});
+const httpServer = http.createServer(httpApp);
+httpServer.listen(theApp.config.get('http.port'));

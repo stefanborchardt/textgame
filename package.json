@@ -4,7 +4,6 @@
     "description": "A text-based game for dialogue corpus acquisition",
     "main": "app.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
         "start": "node ./bin/www",
         "debug": "node --inspect ./bin/www",
         "devstart": "nodemon ./bin/www"
@@ -38,7 +37,9 @@
         "ws": "^6.0.0"
     },
     "devDependencies": {
-        "express-generator": "^4.16.0",
+        "eslint": "^5.3.0",
+        "eslint-config-airbnb-base": "^13.1.0",
+        "eslint-plugin-import": "^2.14.0",
         "nodemon": "^1.18.3"
     }
 }

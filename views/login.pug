@@ -18,6 +18,7 @@ html
 			li anonymisierte Logfiles
 		
 		form(method="post", action="/login")
+			input(type="hidden", name="username")
 			label Password:
-			input(type="password", name="pwd")
+			input(type="password", name="password")
 			input(type="submit" value="Login")

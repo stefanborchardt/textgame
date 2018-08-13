@@ -1,60 +1,59 @@
 /* global location, WebSocket */
-var host = location.origin.replace(/^https/, 'wss')
-var primus = Primus.connect(location.origin);
+const host = location.origin.replace(/^https/, 'wss');
+const primus = Primus.connect(location.origin);
 
 function addMessage(text) {
-    let newLi = document.createElement("li");
+    const newLi = document.createElement('li');
     newLi.innerHTML = text;
     $('#messages').append(newLi);
 }
 
-primus.on('data', function incoming(data) {
-    //expecting JSON here
-    if ('string' === typeof data) {
+primus.on('data', (data) => {
+    // expecting JSON here
+    if (typeof data === 'string') {
         return;
     }
 
     if (data.hasOwnProperty('txt')) {
-        addMessage(data.txt + " / " + data.sid);
+        addMessage(`${data.txt} / ${data.sid}`);
     } else if (data.hasOwnProperty('msg')) {
-        addMessage(data.msg + " / " + data.sid);
+        addMessage(`${data.msg} / ${data.sid}`);
     }
 });
 
 
-$('#send').on("click", function(event) {
+$('#send').on('click', (event) => {
 
 
     primus.write(JSON.stringify({
-        txt: $('#box').val()
+        txt: $('#box').val(),
     }));
     $('#box').val("");
 
 });
 
 
-
-primus.on('reconnect', function reconnect() {
+primus.on('reconnect', () => {
     console.log('reconnect', 'Reconnect', 'Starting the reconnect attempt, hopefully we get a connection!');
 });
-primus.on('online', function online() {
+primus.on('online', () => {
     console.log('network', 'Online', 'We have regained control over our internet connection.');
 });
-primus.on('offline', function offline() {
+primus.on('offline', () => {
     console.log('network', 'Offline', 'We lost our internet connection.');
 });
-primus.on('open', function open() {
+primus.on('open', () => {
     console.log('open', 'Open', 'The connection has been established.');
 
 });
-primus.on('error', function error(err) {
-    console.log('error', 'Erorr', 'An unknown error has occured <code>' + err.message + '</code>');
+primus.on('error', (err) => {
+    console.log('error', 'Erorr', `An unknown error has occured <code>${err.message}</code>`);
 });
-primus.on('end', function end() {
+primus.on('end', () => {
 
     addMessage("connection ended by server");
 
 });
-primus.on('close', function end() {
+primus.on('close', () => {
     console.log('close', 'close', 'We\'ve lost the connection to the server.');
 });
