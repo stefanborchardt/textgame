@@ -4,6 +4,6 @@ A text-based game for natural language dialogue acquisition
 1. install [Node.js](https://nodejs.org)
 2. clone repository
 3. run `npm install` in repository folder to install dependencies
-4. supply SSL certificate and key as in `default.properties`, e.g. follow [https://letsencrypt.org/docs/certificates-for-localhost/]
+4. supply SSL certificate and key as in `default.properties`, [e.g. localhost](https://letsencrypt.org/docs/certificates-for-localhost/)
 5. run `node run ./bin/www`
 6. open [localhost:8080](http://localhost:8080) in browser
