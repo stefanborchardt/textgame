@@ -1,15 +1,23 @@
 const config = require('config');
+const winston = require('winston');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
 const maxAge = parseInt(config.get('cookie.maxage'), 10);
 
-// const winston = require('winston');
-// const logger = winston.createLogger({
-//   transports: [
-//     new winston.transports.File({
-//       filename: 'logs/combined.log',
-//     }),
-//   ],
-// });
+const logger = winston.createLogger({
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.simple(),
+    winston.format.printf(info => `${info.timestamp} ${info.level}: ${info.message}`),
+  ),
+  transports: [
+    new winston.transports.File({
+      filename: 'logs/combined.log',
+    }),
+  ],
+});
 
 const crypto = require('crypto');
 
@@ -24,8 +32,8 @@ function extractSid(cookie) {
   return cookie.substring(indexEq + 5, indexDot);
 }
 
-// check sessionID against sessionStore and
-// return 'noone' or SID of former partner
+// return session from store, if necessary after
+// restoring from cookie
 function syncSession(reqSid, sStore) {
   const storedSid = sStore.get(reqSid);
   if (undefined !== storedSid) {
@@ -34,6 +42,7 @@ function syncSession(reqSid, sStore) {
   // client with old sessionid reconnecting
   // after server restart
   // creating session store entry from sid
+  logger.info('restoring session from cookie');
   sStore.set(reqSid, JSON.stringify({
     cookie: {
       originalMaxAge: maxAge,
@@ -64,76 +73,139 @@ function findPartnerSpark(sprk, partnerSid) {
   return partnerSpark;
 }
 
-// finds another user without partner and
-// sets current requester as other user's partner
-function findPartnerCheckConnection(spk, reqSid, _jStrSid, sStore) {
-  // iterate sessions
-  let foundPartner = null;
-  sStore.rforEach((session, sessId) => {
-    if (foundPartner == null) {
-      const jSession = JSON.parse(session);
-      const pw = jSession.pairedWith;
-      if (pw === 'noone' && reqSid !== sessId) {
-        // found unpaired session, check if connected
-        const partnerSpark = findPartnerSpark(spk, sessId);
-        if (partnerSpark != null) {
-          foundPartner = {};
-          foundPartner.sessionId = sessId;
-          foundPartner.spark = partnerSpark;
-          foundPartner.sparkId = partnerSpark.id;
+// create log file name from the hash of two strings and a random number
+function getLogname(id1, id2) {
+  const clearIdentifier = id1 + Math.random() + id2;
+  const hashedIdentifier = crypto.createHash('sha256').update(clearIdentifier).digest('base64');
+  const identifier = hashedIdentifier.replace(/\W/g, '');
+  return `${identifier}.log`;
+}
 
-          jSession.pairedWith = reqSid;
-          jSession.partnerSpkId = spk.id;
-          sStore.set(sessId, JSON.stringify(jSession), maxAge);
+// reset pairedWith and partnerSpkId for session ID  in store
+function resetSessionToUnpaired(jSession, sessionId, sStore) {
+  logger.info(`resetting session ${jSession.log}`);
+  const jSessionCopy = Object.assign({}, jSession);
+  jSessionCopy.pairedWith = 'noone';
+  jSessionCopy.partnerSpkId = null;
+  jSessionCopy.log = null;
+  jSessionCopy.role = null;
+  sStore.set(sessionId, `${JSON.stringify(jSessionCopy)}\n`, maxAge);
+}
+
+// finds another user without partner or former partner and
+// sets current requester other user as each other's partner
+// add roles and log file name
+function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
+  // iterate sessions
+  let thisResult = null;
+  sStore.rforEach((session, sessId) => {
+    if (thisResult == null) {
+      const jPartner = JSON.parse(session);
+      if (sessId !== reqSid && (jPartner.pairedWith === 'noone' || jPartner.pairedWith === reqSid)) {
+        // found unpaired session, check if connected
+        const foundPartnerSpark = findPartnerSpark(spk, sessId);
+        if (foundPartnerSpark != null) {
+          if (jPartner.pairedWith === reqSid
+            && (jPartner.role === jRequester.role || jPartner.log !== jRequester.log)) {
+            // previously paired, but there is something wrong
+            logger.warn(`resetting pair ${jRequester.log} ${jPartner.log}`);
+            resetSessionToUnpaired(jPartner);
+            resetSessionToUnpaired(jRequester);
+          } else {
+            const jRequesterCopy = Object.assign({}, jRequester);
+            if (jPartner.pairedWith === reqSid) {
+              // re-establish partners, update sparks
+              // and fill requester session from partner in case it was created from cookie
+              logger.info(`re-establish pair ${jPartner.log}`);
+
+              jRequesterCopy.logName = jPartner.log;
+              if (jPartner.role === 'A') {
+                jRequesterCopy.role = 'B';
+              } else {
+                jRequesterCopy.role = 'A';
+              }
+            } else {
+              // new pair
+              const logName = getLogname(reqSid, sessId);
+              logger.info(`new pair ${logName}`);
+
+              jPartner.pairedWith = reqSid;
+              jPartner.partnerSpkId = spk.id;
+              jPartner.log = logName;
+              jPartner.role = 'A';
+
+              jRequesterCopy.log = logName;
+              jRequesterCopy.role = 'B';
+            }
+            //
+            jPartner.partnerSpkId = spk.id;
+
+            jRequesterCopy.pairedWith = sessId;
+            jRequesterCopy.partnerSpkId = foundPartnerSpark.id;
+
+            // save new pair and set return value
+            thisResult = {
+              requesterRole: jRequesterCopy.role,
+              partnerRole: jPartner.role,
+              log: jRequesterCopy.log,
+              partnerSpark: foundPartnerSpark,
+            };
+            sStore.set(sessId, JSON.stringify(jPartner), maxAge);
+            sStore.set(reqSid, JSON.stringify(jRequesterCopy), maxAge);
+          }
         }
       }
     }
   });
-  return foundPartner;
+  return thisResult;
 }
 
 // find the spark of the partner
 // after a connection has been established
 // returns null if not paired in session store
 // or partner not in primus connections
-function getPartnerSpark(sprk, sStore) {
+function getPairInfo(sprk, sStore) {
   const ownSid = extractSid(sprk.headers.cookie);
-  const jOwnSid = JSON.parse(syncSession(ownSid, sStore));
+  const jSession = JSON.parse(syncSession(ownSid, sStore));
 
-  const partnerSid = jOwnSid.pairedWith;
+  const partnerSid = jSession.pairedWith;
   if (partnerSid === 'noone') {
     return null;
   }
 
-  const prtnrSpkId = jOwnSid.partnerSpkId;
-  let partnerSpark = null;
+  const prtnrSpkId = jSession.partnerSpkId;
+  let thisResult = null;
   sprk.primus.forEach((spk, id) => {
-    if (partnerSpark == null) {
+    if (thisResult == null) {
       if (id === prtnrSpkId) {
-        partnerSpark = spk;
+        thisResult = {
+          partnerSpark: spk,
+          ownRole: jSession.role,
+          log: jSession.log,
+        };
       }
     }
   });
-  return partnerSpark;
+  return thisResult;
 }
 
-// reset pairedWith and partnerSpkId for session ID  in store
-function resetSessionToUnpaired(jStSid, reqSid, sStore) {
-  jStSid.pairedWith = 'noone';
-  jStSid.partnerSpkId = '';
-  sStore.set(reqSid, JSON.stringify(jStSid), maxAge);
+function writeMsg(sprk, msg, info) {
+  sprk.write({ msg, info });
 }
 
-function writeMsg(sprk, text, info) {
-  sprk.write({
-    msg: text,
-    sid: info,
+function writeLog(logName, jContent) {
+  const logPath = `logs${path.sep}${logName}`;
+  fs.open(logPath, 'a', (_err, fd) => {
+    fs.appendFile(fd, JSON.stringify(jContent) + os.EOL, (_err) => {
+      fs.close(fd, (_err) => { });
+    });
   });
 }
 
-function getLogname(id1, id2) {
-  return crypto.createHash('sha256').update(id1).digest('base64').substring(5, 20)
-    + crypto.createHash('sha256').update(id2).digest('base64').substring(5, 20);
+function sendText(sprk, partnerSprk, text, role, logName) {
+  sprk.write({ txt: text, role });
+  partnerSprk.write({ txt: text, role });
+  writeLog(logName, { role, text });
 }
 
 // ======================================================
@@ -144,39 +216,33 @@ const tg = function connection(spark) {
   // we use the browser session to identify a user
   // expiration of session can be configured in the properties
   // a user session can span multiple sparks (websocket connections)
-  const reqSid = extractSid(spark.headers.cookie);
-  if (reqSid == null) {
+  const requesterSid = extractSid(spark.headers.cookie);
+  if (requesterSid == null) {
     writeMsg(spark, 'needscookies', '');
     return;
   }
-  const jStoredSid = JSON.parse(syncSession(reqSid, sessionStore));
+  const jRequesterSession = JSON.parse(syncSession(requesterSid, sessionStore));
 
-  writeMsg(spark, 'welcome', `${reqSid}//${spark.id}`);
+  writeMsg(spark, 'welcome', `${requesterSid}//${spark.id}`);
 
-  if (jStoredSid.pairedWith === 'noone') {
+  if (jRequesterSession.pairedWith === 'noone') {
     // new connection or server restart
     // going to find new partner
-    writeMsg(spark, 'finding...', reqSid + spark.id);
+    writeMsg(spark, 'finding...', requesterSid + spark.id);
   } else {
     // unexpired session connecting again
     // going to check if former partner is still there
     writeMsg(spark, 'retrieving...', '');
   }
 
-  const foundPartner = findPartnerCheckConnection(spark, reqSid, jStoredSid, sessionStore);
+  const pair = findPartnerCheckConnection(spark, requesterSid, jRequesterSession, sessionStore);
 
-  if (foundPartner != null) {
+  if (pair != null) {
     // it's a match
-    jStoredSid.pairedWith = foundPartner.sessionId;
-    jStoredSid.partnerSpkId = foundPartner.sparkId;
-    sessionStore.set(reqSid, JSON.stringify(jStoredSid), maxAge);
-
-    writeMsg(spark, 'FOUND', `${foundPartner.sessionId}//${foundPartner.sparkId}`);
-    writeMsg(foundPartner.spark, 'FOUND', `${reqSid}//${spark.id}`);
-
-    // const logName = getLogname(reqSid, foundPartner.sessionId);
+    writeMsg(spark, 'FOUND', `${pair.requesterRole}//${pair.log}//${pair.partnerSpark.id}`);
+    writeMsg(pair.partnerSpark, 'FOUND', `${pair.partnerRole}//${spark.id}//`);
   } else {
-    // reset in case of a retrieved session where partner has expired
+    // reset in case of a retrieved session where partner is not connected
     // resetSessionToUnpaired(jStoredSid, reqSid, sessionStore);
     // no partner found yet
     writeMsg(spark, 'waitforpartner:wait TODOnew', '');
@@ -188,16 +254,9 @@ const tg = function connection(spark) {
     const data = JSON.parse(packet);
 
     if (data.hasOwnProperty('txt')) {
-      const pSpark = getPartnerSpark(spark, sessionStore);
-      if (pSpark != null) {
-        pSpark.write({
-          txt: data.txt,
-          sid: spark.id,
-        });
-        spark.write({
-          txt: data.txt,
-          sid: spark.id,
-        });
+      const result = getPairInfo(spark, sessionStore);
+      if (result != null) {
+        sendText(spark, result.partnerSpark, data.txt, result.ownRole, result.log);
       } else {
         // lost connection
         writeMsg(spark, 'partnernotfound:wait TODOnew', '');
@@ -225,9 +284,9 @@ const tg = function connection(spark) {
   });
   spark.on('end', () => {
     // tab closed
-    const pSpark = getPartnerSpark(spark, sessionStore);
-    if (pSpark != null) {
-      writeMsg(pSpark, 'partnerdisconnected:wait TODOnew', spark.id);
+    const result = getPairInfo(spark, sessionStore);
+    if (result != null) {
+      writeMsg(result.partnerSpark, 'partnerdisconnected:wait TODOnew', spark.id);
       // resetSessionToUnpaired(jStoredSid, reqSid, sessionStore);
     }
   });
