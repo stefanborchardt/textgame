@@ -2,14 +2,21 @@ include head
 
 block content
 	h1= title
-	p Welcome to #{title}
 
-	div#drawing
+	div#content
 
-	ul#messages
-	
-	input#box(type='text')
-	button#sendText Send 
+		div#sizing
+			div#drawing
+
+			div#chat
+				ul#messages
+
+			div#write
+				input#box(type='text')
+				button#sendText Send 
+
+		div#turnover
+			button#endTurn Wechseln
 
 	include foot
 

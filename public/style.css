@@ -1,0 +1,60 @@
+body {
+  padding: 2vw;
+}
+
+#content {
+  display: flex;
+  flex-direction: row;
+}
+
+#sizing {
+  width: 60vw;
+  min-width: 500px;
+  margin-right: 3vh;
+}
+#sizing > * {
+  width: 100%;
+}
+
+#drawing {
+  border: 1pt solid black;
+  height: 50vh;
+  min-height: 500px;
+  margin-bottom: 3vh;
+}
+
+#chat {
+  border: 1pt solid black;
+  height: 12vh;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  will-change: scroll-position;
+  margin-bottom: 3vh;
+}
+
+ul {
+  list-style: none;
+}
+li {
+  white-space: normal;
+}
+
+#write {
+  display: flex;
+  flex-direction: row;
+}
+
+#box {
+  width: 100%;
+}
+
+#turnover {
+  width: 20vh;
+  min-width: 100px;
+  vertical-align: middle;
+  align-items: center;
+  display: flex;
+}
+#endturn {
+  height: 10vh;
+}

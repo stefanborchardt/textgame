@@ -106,7 +106,8 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
         const foundPartnerSpark = findPartnerSpark(spk, sessId);
         if (foundPartnerSpark != null) {
           if (jPartner.pairedWith === reqSid
-            && (jPartner.role === jRequester.role || jPartner.log !== jRequester.log)) {
+            && (jPartner.role === jRequester.role || jPartner.log !== jRequester.log
+              || jPartner.turn === jRequester.turn)) {
             // previously paired, but there is something wrong
             logger.warn(`resetting pair ${jRequester.log} ${jPartner.log}`);
             resetSessionToUnpaired(jPartner);
@@ -124,6 +125,7 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
               } else {
                 jRequesterCopy.role = 'A';
               }
+              jRequesterCopy.turn = !jPartner.turn;
             } else {
               // new pair
               const logName = getLogname(reqSid, sessId);
@@ -133,9 +135,11 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
               jPartner.partnerSpkId = spk.id;
               jPartner.log = logName;
               jPartner.role = 'A';
+              jPartner.turn = true;
 
               jRequesterCopy.log = logName;
               jRequesterCopy.role = 'B';
+              jRequesterCopy.turn = false;
             }
             //
             jPartner.partnerSpkId = spk.id;
@@ -149,6 +153,7 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
               partnerRole: jPartner.role,
               log: jRequesterCopy.log,
               partnerSpark: foundPartnerSpark,
+              requesterTurn: jRequesterCopy.turn,
             };
             sStore.set(sessId, JSON.stringify(jPartner), maxAge);
             sStore.set(reqSid, JSON.stringify(jRequesterCopy), maxAge);
@@ -179,14 +184,29 @@ function getPairInfo(sprk, sStore) {
     if (thisResult == null) {
       if (id === prtnrSpkId) {
         thisResult = {
+          ownSid,
           partnerSpark: spk,
           ownRole: jSession.role,
+          ownTurn: jSession.turn,
           log: jSession.log,
         };
       }
     }
   });
   return thisResult;
+}
+
+// ends requesters turn in session store
+// assumes that the partner connection has been checked
+function endTurn(reqSid, sStore) {
+  const jreqSession = JSON.parse(syncSession(reqSid, sStore));
+  const jpartSession = JSON.parse(syncSession(jreqSession.pairedWith, sStore));
+  const jreqSessionCopy = Object.assign({}, jreqSession);
+  const jpartSessionCopy = Object.assign({}, jpartSession);
+  jreqSessionCopy.turn = false;
+  jpartSessionCopy.turn = true;
+  sStore.set(reqSid, JSON.stringify(jreqSessionCopy), maxAge);
+  sStore.set(jreqSession.pairedWith, JSON.stringify(jpartSessionCopy), maxAge);
 }
 
 function writeMsg(sprk, msg, info) {
@@ -202,10 +222,23 @@ function writeLog(logName, jContent) {
   });
 }
 
-function sendText(sprk, partnerSprk, text, role, logName) {
-  sprk.write({ txt: text, role });
-  partnerSprk.write({ txt: text, role });
-  writeLog(logName, { role, text });
+function broadcast(sprk, partnerSprk, data, role) {
+  const dataCopy = Object.assign({}, data);
+  dataCopy.role = role;
+  sprk.write(dataCopy);
+  partnerSprk.write(dataCopy);
+  return dataCopy;
+}
+
+function broadcastWithLog(sprk, partnerSprk, data, role, logName) {
+  const dataCopy = broadcast(sprk, partnerSprk, data, role);
+  writeLog(logName, dataCopy);
+}
+
+function broadcastTurn(sprk, partnerSprk, requesterTurn, requesterRole, logName) {
+  sprk.write({ turnover: requesterTurn });
+  partnerSprk.write({ turnover: !requesterTurn });
+  writeLog(logName, { nextTurn: { role: requesterRole, active: requesterTurn } });
 }
 
 // ======================================================
@@ -218,7 +251,7 @@ const tg = function connection(spark) {
   // a user session can span multiple sparks (websocket connections)
   const requesterSid = extractSid(spark.headers.cookie);
   if (requesterSid == null) {
-    writeMsg(spark, 'needscookies', '');
+    writeMsg(spark, 'cookie expired or cookies disabled', '');
     return;
   }
   const jRequesterSession = JSON.parse(syncSession(requesterSid, sessionStore));
@@ -241,6 +274,8 @@ const tg = function connection(spark) {
     // it's a match
     writeMsg(spark, 'FOUND', `${pair.requesterRole}//${pair.log}//${pair.partnerSpark.id}`);
     writeMsg(pair.partnerSpark, 'FOUND', `${pair.partnerRole}//${spark.id}//`);
+
+    broadcastTurn(spark, pair.partnerSpark, pair.requesterTurn, pair.requesterRole, pair.log);
   } else {
     // reset in case of a retrieved session where partner is not connected
     // resetSessionToUnpaired(jStoredSid, reqSid, sessionStore);
@@ -251,19 +286,35 @@ const tg = function connection(spark) {
 
   spark.on('data', (packet) => {
     if (!packet) return;
-    const data = JSON.parse(packet);
 
-    if (data.hasOwnProperty('txt')) {
-      const result = getPairInfo(spark, sessionStore);
-      if (result != null) {
-        sendText(spark, result.partnerSpark, data.txt, result.ownRole, result.log);
-      } else {
-        // lost connection
-        writeMsg(spark, 'partnernotfound:wait TODOnew', '');
-        // resetSessionToUnpaired(jStoredSid, reqSid, sessionStore);
+    const result = getPairInfo(spark, sessionStore);
+    if (result != null) {
+      const data = JSON.parse(packet);
+
+      if (data.txt !== undefined) {
+        broadcastWithLog(spark, result.partnerSpark, data, result.ownRole, result.log);
+      } else if (data.act !== undefined) {
+        if (data.act === 'drag') {
+          if (!result.ownTurn) {
+            logger.warn('inactive user dragging');
+          }
+          broadcastWithLog(spark, result.partnerSpark, data, result.ownRole, result.log);
+        } else if (data.act === 'drgmv') {
+          broadcast(spark, result.partnerSpark, data, result.ownRole);
+        }
+      } else if (data.turnover !== undefined) {
+        if (!result.ownTurn) {
+          logger.warn('inactive user handing turn over');
+        }
+        endTurn(result.ownSid, sessionStore);
+        broadcastTurn(spark, result.partnerSpark, false, result.ownRole, result.log);
+      } else if (data.msg !== undefined) {
+        // TODO
       }
-    } else if (data.hasOwnProperty('msg')) {
-      // TODO
+    } else {
+      // lost connection
+      writeMsg(spark, 'partnernotfound:wait TODOnew', '');
+      // resetSessionToUnpaired(jStoredSid, reqSid, sessionStore);
     }
   });
 
