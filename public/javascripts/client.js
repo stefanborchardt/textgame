@@ -4,16 +4,7 @@ const addMessage = (text) => {
   const newLi = document.createElement('li');
   newLi.innerHTML = text;
   $('#messages').append(newLi);
-};
-
-const sendText = () => {
-  if ($('#box').val().length === 0) {
-    return;
-  }
-  primus.write(JSON.stringify({
-    txt: $('#box').val(),
-  }));
-  $('#box').val('');
+  return true;
 };
 
 primus.on('data', (data) => {
@@ -21,25 +12,39 @@ primus.on('data', (data) => {
   if (typeof data === 'string') {
     return;
   }
-
-  if (data.hasOwnProperty('txt')) {
+  
+  if (data.txt !== undefined) {
     addMessage(`${data.role}: ${data.txt}`);
-  } else if (data.hasOwnProperty('msg')) {
+  } else if (data.msg !== undefined) {
     addMessage(`${data.msg} / ${data.info}`);
   }
 });
 
-
-$('#send').on('click', sendText());
-
-$('#box').keypress((evt) => {
-  if (evt.which === 13) {
-    sendText();
-    return false;
+class Send {
+  static text() {
+    const txt = $('#box').val();
+    if (txt !== '') {
+      primus.write(JSON.stringify({ txt }));
+      $('#box').val('');
+    }
   }
-  return true;
+}
+
+$('#sendText').on('click', () => { Send.text(); });
+$('#box').on('keypress', (evt) => {
+  if (evt.which === 13) {
+    Send.text();
+  }
 });
 
+const filterInput = (inpVal) => {
+  return inpVal.replace(/[^A-Za-z0-9äöüÄÖÜß!\'\"\?\,\.\- ]/g, '');
+};
+
+
+$('#box').on('keyup', () => {
+  $('#box').val(filterInput($('#box').val()));
+});
 
 primus.on('reconnect', () => {
   console.log('reconnect', 'Reconnect', 'Starting the reconnect attempt, hopefully we get a connection!');
