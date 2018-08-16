@@ -118,7 +118,7 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
               // re-establish partners, update sparks
               // and fill requester session from partner in case it was created from cookie
               logger.info(`re-establish pair ${jPartner.log}`);
-
+              
               jRequesterCopy.logName = jPartner.log;
               if (jPartner.role === 'A') {
                 jRequesterCopy.role = 'B';
@@ -175,6 +175,7 @@ function getPairInfo(sprk, sStore) {
 
   const partnerSid = jSession.pairedWith;
   if (partnerSid === 'noone') {
+    logger.info('partner disconnected');
     return null;
   }
 
@@ -251,12 +252,14 @@ const tg = function connection(spark) {
   // a user session can span multiple sparks (websocket connections)
   const requesterSid = extractSid(spark.headers.cookie);
   if (requesterSid == null) {
+    logger.info('connection without cookie');
     writeMsg(spark, 'cookie expired or cookies disabled', '');
     return;
   }
   const jRequesterSession = JSON.parse(syncSession(requesterSid, sessionStore));
 
   writeMsg(spark, 'welcome', `${requesterSid}//${spark.id}`);
+  logger.info('new connection');
 
   if (jRequesterSession.pairedWith === 'noone') {
     // new connection or server restart
