@@ -5,27 +5,30 @@ body {
 #content {
   display: flex;
   flex-direction: row;
-}
-
-#sizing {
-  width: 60vw;
-  min-width: 500px;
-  margin-right: 3vh;
-}
-#sizing > * {
-  width: 100%;
+  width: 80vw;
 }
 
 #drawing {
+  margin-right: 3vw;
+  width: 100%;
+  min-width: 500px;
+  height: 70vh;
+}
+
+svg {
   border: 1pt solid black;
-  height: 50vh;
-  min-height: 400px;
-  margin-bottom: 3vh;
+}
+
+#sizing {
+  width: 40vw;
+  min-width: 30vw;
+  display: flex;
+  flex-direction: column;
 }
 
 #chat {
   border: 1pt solid black;
-  height: 12vh;
+  height: 30vh;
   overflow-y: scroll;
   overflow-x: hidden;
   will-change: scroll-position;
@@ -42,19 +45,25 @@ li {
 #write {
   display: flex;
   flex-direction: row;
-}
-
-#box {
+  margin-bottom: 3vh;
   width: 100%;
 }
 
-#turnover {
-  width: 20vh;
-  min-width: 100px;
-  vertical-align: middle;
-  align-items: center;
-  display: flex;
+#write > input {
+  margin-right: 1vh;
+  width: 100%;
 }
-#endturn {
-  height: 10vh;
+
+#sendText {
+  display: flex;
+  flex-direction: row;
+}
+
+.wideButton {
+  width: 100%;
+}
+
+.wideButton > button {
+  margin-bottom: 3vh;
+  width: 100%;
 }

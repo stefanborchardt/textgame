@@ -19,49 +19,6 @@ const dragArea = {
   maxY: 100,
 };
 
-class DragHandler {
-  static sendDrag(event) {
-    const elem = event.target;
-    primus.write(JSON.stringify({
-      act: 'drag',
-      elem: elem.id,
-      x: Math.round(elem.x.baseVal.value),
-      y: Math.round(elem.y.baseVal.value),
-    }));
-  }
-
-  static sendDragMove(event) {
-    const elem = event.target;
-    // console.log(Math.round(elem.x.baseVal.value));
-    primus.write(JSON.stringify({
-      act: 'drgmv',
-      elem: elem.id,
-      x: Math.round(elem.x.baseVal.value),
-      y: Math.round(elem.y.baseVal.value),
-    }));
-  }
-
-  static enableDrag(elem) {
-    elem.draggable();
-    elem.draggable(dragArea);
-    elem.on('dragend', (event) => { DragHandler.sendDrag(event); });
-    elem.on('dragmove', _.throttle(event => DragHandler.sendDragMove(event), 150, { leading: true }));
-  }
-
-  static disableDrag(elem) {
-    elem.off('dragmove');
-    elem.off('dragend');
-    elem.draggable(false);
-  }
-}
-
-const rect1 = draw.rect(10, 10).id('rect1').move(40, 50).attr({ fill: '#f06' });
-const rect2 = draw.rect(20, 20).id('rect2').move(20, 5).attr({ fill: '#f60' });
-const rect3 = draw.rect(10, 10).id('rect3').move(5, 20).attr({ fill: '#6f0' });
-
-const allObjects = draw.set();
-allObjects.add(rect1).add(rect2).add(rect3);
-
 // ################  OUTGOING  Chat
 class TextHandler {
   static send() {
@@ -90,7 +47,8 @@ class TurnHandler {
   }
 }
 
-$('#endTurn').on('click', () => { TurnHandler.send(); });
+$('#endTurn').on('click', () => { primus.write(JSON.stringify({ endturn: true })); });
+$('#newPartner').on('click', () => { primus.write(JSON.stringify({ reset: true })); });
 
 // ===========================================
 // =====================  INCOMING WS Handler
@@ -104,16 +62,50 @@ primus.on('data', (data) => {
     addMessage(`${data.role}: ${data.txt}`);
   } else if (data.msg !== undefined) {
     addMessage(`${data.msg} / ${data.info}`);
+  } else if (data.turn !== undefined) {
+    const imageIds = data.board;
+    for (let i = 0; i < imageIds.length; i += 1) {
+      const row = Math.trunc(i / 4);
+      const col = i % 4;
+      const imgId = imageIds[i];
+      const group = draw.group();
+      const rect = group.rect(21, 21);
+      const image = group.image(`g${data.gameId}/i${imgId}.png`);
+      image.data('id', imgId);
+      image.data('selected', false);
+      image.size(20, 20).move(0.5, 0.5);
+      group.move(col * 25 + 2, row * 25 + 2);
+      group.on('click', (event) => {
+        const img = event.target.instance;
+        // img.front();
+        const selected = !img.data('selected');
+        img.data('selected', selected);
+        if (selected) {
+          img.opacity(0.5);
+          event.target.parentElement.firstChild.instance.fill('red');
+        } else {
+          img.opacity(1);
+          event.target.parentElement.firstChild.instance.fill('black');
+        }
+        primus.write(JSON.stringify({
+          act: 'click',
+          elem: img.data('id'),
+          selected,
+        }));
+      });
+      // group.draggable(dragArea);
+      // group.on('dragstart', (event) => {
+      //   event.target.instance.front();
+      // });
+    }
   } else if (data.act !== undefined) {
     SVG.get(data.elem).move(data.x, data.y);
   } else if (data.turnover !== undefined) {
     if (data.turnover) {
-      DragHandler.enableDrag(allObjects);
       $('#endTurn').prop('disabled', false);
       addMessage('YOUR TURN');
     } else {
       $('#endTurn').prop('disabled', true);
-      DragHandler.disableDrag(allObjects);
       addMessage('TURN ENDED');
     }
   }

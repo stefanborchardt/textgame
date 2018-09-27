@@ -82,18 +82,18 @@ function getLogname(id1, id2) {
   const clearIdentifier = id1 + Math.random() + id2;
   const hashedIdentifier = crypto.createHash('sha256').update(clearIdentifier).digest('base64');
   const identifier = hashedIdentifier.replace(/\W/g, '');
-  return `${identifier}.log`;
+  return `${identifier}`;
 }
 
 /** reset pairedWith and partnerSpkId for session ID  in store */
-function resetSessionToUnpaired(jSession, sessionId, sStore) {
-  logger.info(`resetting session ${jSession.log}`);
+function resetSessionToUnpaired(sessionId, sStore) {
+  const jSession = JSON.parse(syncSession(sessionId, sStore));
   const jSessionCopy = Object.assign({}, jSession);
   jSessionCopy.pairedWith = 'noone';
   sStore.set(sessionId, `${JSON.stringify(jSessionCopy)}\n`, maxAge);
 }
 
-/** get the partner from the game state 
+/** get the partner from the game state
  */
 function getPartner(sessionId, gameState) {
   return gameState[gameState[sessionId].partnerSid];
@@ -104,6 +104,9 @@ function createInitialState() {
   return {
     A: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
     B: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 16, 17, 18, 19],
+    common: new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+    uniqueA: new Set([12, 13, 14, 15]),
+    uniqueB: new Set([16, 17, 18, 19]),
   };
 }
 
@@ -128,8 +131,8 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
             if (existingState[sessId] === undefined || existingState[reqSid] === undefined) {
               // session IDs in game state do not match session data of partners
               logger.warn(`resetting pair ${jRequester.pairedWith} ${jPartner.pairedWith}`);
-              resetSessionToUnpaired(jRequester, reqSid, sStore);
-              resetSessionToUnpaired(jPartner, sessId, sStore);
+              resetSessionToUnpaired(reqSid, sStore);
+              resetSessionToUnpaired(sessId, sStore);
               gameStates.del(gameStateId);
             } else {
               // re-establish partners, update sparks
@@ -141,7 +144,7 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
               existingState[sessId].sparkId = foundPartnerSpark.id;
 
               gameState = existingState;
-              gameStates.set(gameStateId, gameState);
+              gameStates.set(gameStateId, existingState);
             }
           } else {
             // new pair or expired game state
@@ -151,29 +154,38 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
             jPartner.pairedWith = logName;
             jRequesterCopy.pairedWith = logName;
 
-            // save new pair and set return value
+            // init game state
+            const initialBoard = createInitialState();
             gameState = {
               id: logName,
               [reqSid]: {
-                role: 'A',
+                sessionId: reqSid,
                 partnerSid: sessId,
                 spark: spk,
                 sparkId: spk.id,
+                role: 'A',
+                board: initialBoard.A,
               },
               [sessId]: {
-                role: 'B',
+                sessionId: sessId,
                 partnerSid: reqSid,
                 spark: foundPartnerSpark,
                 sparkId: foundPartnerSpark.id,
+                role: 'B',
+                board: initialBoard.B,
               },
+              gameId: 0,
+              common: initialBoard.common,
+              uniqueA: initialBoard.uniqueA,
+              uniqueB: initialBoard.uniqueB,
               turn: reqSid,
               turnCount: 0,
-              state: createInitialState(),
               undosLeft: 2,
             };
             gameStates.set(logName, gameState);
           }
 
+          // save new pair
           sStore.set(sessId, JSON.stringify(jPartner), maxAge);
           sStore.set(reqSid, JSON.stringify(jRequesterCopy), maxAge);
         }
@@ -189,12 +201,13 @@ after a connection has been established
 or partner not in primus connections */
 function getStateCheckPartner(sprk, sStore) {
   const ownSid = extractSid(sprk.headers.cookie);
+
   const jSession = JSON.parse(syncSession(ownSid, sStore));
 
   const gameStateId = jSession.pairedWith;
-  if (gameStateId === 'noone') {
-    logger.info('partner disconnected');
-    return null;
+  if (gameStateId === 'noone' || gameStateId == null) {
+    logger.info('session not paired');
+    return { state: 'noone' };
   }
 
   const state = gameStates.get(gameStateId);
@@ -208,13 +221,13 @@ function getStateCheckPartner(sprk, sStore) {
     }
   });
   if (found) {
-    const oneself = state[ownSid];
+    const requester = state[ownSid];
     const ownturn = state.turn === ownSid;
     return {
-      state, partner, oneself, ownturn,
+      state, partner, requester, ownturn,
     };
   }
-  return null;
+  return { state: 'partnerdisconnected' };
 }
 
 // ends requesters turn in session store
@@ -235,7 +248,7 @@ function writeMsg(sprk, msg, info) {
 }
 
 function writeLog(logName, jContent) {
-  const logPath = `logs${path.sep}${logName}`;
+  const logPath = `logs${path.sep}${logName}.log`;
   fs.open(logPath, 'a', (_err, fd) => {
     fs.appendFile(fd, JSON.stringify(jContent) + os.EOL, (_err) => {
       fs.close(fd, (_err) => { });
@@ -256,10 +269,39 @@ function broadcastWithLog(sprk, partnerSprk, data, role, logName) {
   writeLog(logName, dataCopy);
 }
 
-function broadcastTurn(sprk, partnerSprk, requesterTurn, requesterRole, logName) {
-  sprk.write({ turnover: requesterTurn });
-  partnerSprk.write({ turnover: !requesterTurn });
-  writeLog(logName, { nextTurn: { role: requesterRole, active: requesterTurn } });
+function getTurnData(player, state, turn) {
+  return {
+    turn,
+    gameId: state.gameId,
+    board: player.board,
+    undosLeft: state.undosLeft,
+    turnCount: state.turnCount,
+    role: player.role,
+  };
+}
+
+function getGameData(state, requester, partner, ownTurn) {
+  return {
+    [requester.role]: {
+      board: requester.board,
+    },
+    [partner.role]: {
+      board: partner.board,
+    },
+    gameId: state.gameId,
+    common: state.common,
+    uniqueA: state.uniqueA,
+    uniqueB: state.uniqueB,
+    turn: (ownTurn) ? requester.role : partner.role,
+    turnCount: state.turnCount,
+    undosLeft: state.undosLeft,
+  };
+}
+
+function broadcastTurn(state, requester, partner, ownTurn) {
+  requester.spark.write(getTurnData(requester, state, ownTurn));
+  partner.spark.write(getTurnData(partner, state, !ownTurn));
+  writeLog(state.id, getGameData(state, requester, partner, ownTurn));
 }
 
 // ======================================================
@@ -297,12 +339,11 @@ const tg = function connection(spark) {
   if (gameState != null) {
     // it's a match
     const partner = getPartner(requesterSid, gameState);
-    const oneself = gameState[requesterSid];
-    writeMsg(oneself.spark, 'FOUND', `${oneself.role}// game ${gameState.id}//${partner.sparkId}`);
-    writeMsg(partner.spark, 'FOUND', `${partner.role}// game ${gameState.id}//${oneself.sparkId}`);
-
-    broadcastTurn(oneself.spark, partner.spark, gameState.turn === requesterSid,
-      oneself.role, gameState.id);
+    const requester = gameState[requesterSid];
+    writeMsg(requester.spark, 'FOUND', `${requester.role}// game ${gameState.id}//${gameState.gameId}`);
+    writeMsg(partner.spark, 'FOUND', `${partner.role}// game ${gameState.id}//${gameState.gameId}`);
+    // initialize client boards
+    broadcastTurn(gameState, requester, partner, gameState.turn === requesterSid);
   } else {
     // reset in case of a retrieved session where partner is not connected
     // resetSessionToUnpaired(jStoredSid, reqSid, sessionStore);
@@ -310,40 +351,47 @@ const tg = function connection(spark) {
     writeMsg(spark, 'waitforpartner:wait TODOnew', '');
   }
 
+  // ======================================================
 
   spark.on('data', (packet) => {
     if (!packet) return;
 
     const {
-      state, partner, oneself, ownturn,
+      state, partner, requester, ownturn,
     } = getStateCheckPartner(spark, sessionStore);
-    if (state != null) {
+    if (state === 'noone') {
+      writeMsg(spark, 'unpaired:reload', '');
+      writeLog(state.id, { resetBy: 'unpaired' });
+      const ownSid = extractSid(spark.headers.cookie);
+      resetSessionToUnpaired(ownSid, sessionStore);
+    } else if (state === 'partnerdisconnected') {
+      writeMsg(spark, 'partnerdisconnected:wait or reset', '');
+    } else {
       const data = JSON.parse(packet);
-
+      
       if (data.txt !== undefined) {
-        broadcastWithLog(spark, partner.spark, data, oneself.role, state.id);
+        broadcastWithLog(spark, partner.spark, data, requester.role, state.id);
       } else if (data.act !== undefined) {
-        if (data.act === 'drag') {
-          if (!ownturn) {
-            logger.warn('inactive user dragging');
-          }
-          broadcastWithLog(spark, partner.spark, data, oneself.role, state.id);
-        } else if (data.act === 'drgmv') {
-          broadcast(spark, partner.spark, data, oneself.role);
+        if (data.act === 'click') {
+          // broadcastWithLog(spark, prtnr.spark, data, reqstr.role, state.id);
         }
-      } else if (data.turnover !== undefined) {
+      } else if (data.endturn !== undefined) {
         if (!ownturn) {
           logger.warn('inactive user handing turn over');
         }
-        endTurn(oneself.sid, sessionStore);
-        broadcastTurn(spark, partner.spark, false, oneself.role, state.id);
+        endTurn(requester.sid, sessionStore);
+        broadcastTurn(spark, partner.spark, false, requester.role, state.id);
+      } else if (data.reset !== undefined) {
+        logger.info(`resetting pair ${state.id}`);
+        writeLog(state.id, { resetBy: requester.role });
+        resetSessionToUnpaired(requester.sessionId, sessionStore);
+        resetSessionToUnpaired(partner.sessionId, sessionStore);
+        gameStates.del(state.id);
+        writeMsg(spark, 'resetdone:reload', '');
+        writeMsg(partner.spark, 'resetdone:reload', '');
       } else if (data.msg !== undefined) {
         // TODO
       }
-    } else {
-      // lost connection
-      writeMsg(spark, 'partnernotfound:wait TODOnew', '');
-      // resetSessionToUnpaired(jStoredSid, reqSid, sessionStore);
     }
   });
 
@@ -364,9 +412,11 @@ const tg = function connection(spark) {
   });
   spark.on('end', () => {
     // tab closed
-    const result = getStateCheckPartner(spark, sessionStore);
-    if (result != null) {
-      writeMsg(result.partnerSpark, 'partnerdisconnected:wait TODOnew', spark.id);
+    const {
+      partner,
+    } = getStateCheckPartner(spark, sessionStore);
+    if (partner != null) {
+      writeMsg(partner.spark, 'partnerdisconnected:wait TODOnew', spark.id);
       // resetSessionToUnpaired(jStoredSid, reqSid, sessionStore);
     }
   });

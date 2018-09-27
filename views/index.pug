@@ -5,18 +5,20 @@ block content
 
 	div#content
 
-		div#sizing
-			div#drawing
+		div#drawing
 
+		div#sizing
 			div#chat
 				ul#messages
-
+			
 			div#write
 				input#box(type='text')
-				button#sendText Send 
+				button#sendText Send
 
-		div#turnover
-			button#endTurn Wechseln
+			div(class='wideButton')
+				button#endTurn Zug beenden
+			div(class='wideButton')
+				button#newPartner Neuer Partner
 
 	include foot
 
