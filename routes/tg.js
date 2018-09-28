@@ -181,6 +181,7 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
               turn: reqSid,
               turnCount: 0,
               undosLeft: 2,
+              currentSelection: new Set(),
             };
             gameStates.set(logName, gameState);
           }
@@ -230,17 +231,18 @@ function getStateCheckPartner(sprk, sStore) {
   return { state: 'partnerdisconnected' };
 }
 
-// ends requesters turn in session store
-// assumes that the partner connection has been checked
-function endTurn(reqSid, sStore) {
-  const jreqSession = JSON.parse(syncSession(reqSid, sStore));
-  const jpartSession = JSON.parse(syncSession(jreqSession.pairedWith, sStore));
-  const jreqSessionCopy = Object.assign({}, jreqSession);
-  const jpartSessionCopy = Object.assign({}, jpartSession);
-  jreqSessionCopy.turn = false;
-  jpartSessionCopy.turn = true;
-  sStore.set(reqSid, JSON.stringify(jreqSessionCopy), maxAge);
-  sStore.set(jreqSession.pairedWith, JSON.stringify(jpartSessionCopy), maxAge);
+
+function checkTurnConditions(state) {
+  if (state.turnCount === 0) {
+    if (state.currentSelection.size === 4) {
+      return null;
+    }
+    return 'select 4';
+  }
+  if (state.currentSelection.size === 2) {
+    return null;
+  }
+  return 'select 2';
 }
 
 function writeMsg(sprk, msg, info) {
@@ -269,6 +271,7 @@ function broadcastWithLog(sprk, partnerSprk, data, role, logName) {
   writeLog(logName, dataCopy);
 }
 
+
 function getTurnData(player, state, turn) {
   return {
     turn,
@@ -289,19 +292,73 @@ function getGameData(state, requester, partner, ownTurn) {
       board: partner.board,
     },
     gameId: state.gameId,
-    common: state.common,
-    uniqueA: state.uniqueA,
-    uniqueB: state.uniqueB,
+    common: Array.from(state.common),
+    uniqueA: Array.from(state.uniqueA),
+    uniqueB: Array.from(state.uniqueB),
     turn: (ownTurn) ? requester.role : partner.role,
     turnCount: state.turnCount,
     undosLeft: state.undosLeft,
+    currentSelection: Array.from(state.currentSelection),
   };
+}
+
+function registerClick(state, requester, partner, ownTurn, id, selected) {
+  const selToUpdate = new Set(state.currentSelection);
+  if (selected && !selToUpdate.has(id)) {
+    selToUpdate.add(id);
+  } else if (!selected && selToUpdate.has(id)) {
+    selToUpdate.delete(id);
+  } else {
+    logger.warn(`selection by ${requester.sessionId} in game ${state.id} not allowed`);
+  }
+  const stateToUpdate = gameStates.get(state.id);
+  stateToUpdate.currentSelection = selToUpdate;
+  gameStates.set(state.id, stateToUpdate);
+  writeLog(state.id, getGameData(stateToUpdate, requester, partner, ownTurn));
 }
 
 function broadcastTurn(state, requester, partner, ownTurn) {
   requester.spark.write(getTurnData(requester, state, ownTurn));
   partner.spark.write(getTurnData(partner, state, !ownTurn));
   writeLog(state.id, getGameData(state, requester, partner, ownTurn));
+}
+
+// ends requesters turn in session store
+// assumes that the partner connection has been checked
+function endTurn(state, partner, requester, ownTurn) {
+  if (!ownTurn) {
+    logger.warn(`ending turn by ${requester.sessionId} in game ${state.id} not allowed`);
+  }
+  const checkResult = checkTurnConditions(state);
+  if (checkResult != null) {
+    writeMsg(requester.spark, checkResult, '');
+    return;
+  }
+
+  const stateToUpdate = gameStates.get(state.id);
+
+  stateToUpdate.turnCount += 1;
+
+  const rBoard = [];
+  state[requester.sessionId].board.forEach((elem) => {
+    if (!state.currentSelection.has(elem)) {
+      rBoard.push(elem);
+    }
+  });
+  const pBoard = [];
+  state[partner.sessionId].board.forEach((elem) => {
+    if (!state.currentSelection.has(elem)) {
+      pBoard.push(elem);
+    }
+  });
+
+  stateToUpdate.currentSelection.clear();
+  stateToUpdate[requester.sessionId].board = rBoard;
+  stateToUpdate[partner.sessionId].board = pBoard;
+  stateToUpdate.turn = partner.sessionId;
+  gameStates.set(state.id, stateToUpdate);
+  writeLog(state.id, getGameData(stateToUpdate, requester, partner, !ownTurn));
+  broadcastTurn(stateToUpdate, requester, partner, !ownTurn);
 }
 
 // ======================================================
@@ -359,6 +416,7 @@ const tg = function connection(spark) {
     const {
       state, partner, requester, ownturn,
     } = getStateCheckPartner(spark, sessionStore);
+
     if (state === 'noone') {
       writeMsg(spark, 'unpaired:reload', '');
       writeLog(state.id, { resetBy: 'unpaired' });
@@ -368,19 +426,16 @@ const tg = function connection(spark) {
       writeMsg(spark, 'partnerdisconnected:wait or reset', '');
     } else {
       const data = JSON.parse(packet);
-      
+
       if (data.txt !== undefined) {
         broadcastWithLog(spark, partner.spark, data, requester.role, state.id);
       } else if (data.act !== undefined) {
+        // only click
         if (data.act === 'click') {
-          // broadcastWithLog(spark, prtnr.spark, data, reqstr.role, state.id);
+          registerClick(state, requester, partner, ownturn, data.id, data.selected);
         }
       } else if (data.endturn !== undefined) {
-        if (!ownturn) {
-          logger.warn('inactive user handing turn over');
-        }
-        endTurn(requester.sid, sessionStore);
-        broadcastTurn(spark, partner.spark, false, requester.role, state.id);
+        endTurn(state, partner, requester, ownturn);
       } else if (data.reset !== undefined) {
         logger.info(`resetting pair ${state.id}`);
         writeLog(state.id, { resetBy: requester.role });
