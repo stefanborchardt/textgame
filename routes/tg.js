@@ -26,6 +26,8 @@ const logger = winston.createLogger({
 const gameStates = cache({ maxAge });
 setInterval(() => { gameStates.prune(); }, 2 * maxAge);
 
+// ============================================= session and connection
+
 /** Extract session ID from the cookie string */
 function extractSid(cookie) {
   if (undefined === cookie) {
@@ -77,14 +79,6 @@ function findPartnerSpark(sprk, partnerSid) {
   return partnerSpark;
 }
 
-// create log file name from the hash of two strings and a random number
-function getLogname(id1, id2) {
-  const clearIdentifier = id1 + Math.random() + id2;
-  const hashedIdentifier = crypto.createHash('sha256').update(clearIdentifier).digest('base64');
-  const identifier = hashedIdentifier.replace(/\W/g, '');
-  return `${identifier}`;
-}
-
 /** reset pairedWith and partnerSpkId for session ID  in store */
 function resetSessionToUnpaired(sessionId, sStore) {
   const jSession = JSON.parse(syncSession(sessionId, sStore));
@@ -93,24 +87,36 @@ function resetSessionToUnpaired(sessionId, sStore) {
   sStore.set(sessionId, `${JSON.stringify(jSessionCopy)}\n`, maxAge);
 }
 
+// ================================================== game setup
+
+// create log file name from the hash of two strings and a random number
+function getLogname(id1, id2) {
+  const clearIdentifier = id1 + Math.random() + id2;
+  const hashedIdentifier = crypto.createHash('sha256').update(clearIdentifier).digest('base64');
+  const identifier = hashedIdentifier.replace(/\W/g, '');
+  return `${identifier}`;
+}
+
+/** TODO */
+function createInitialState() {
+  return {
+    A: new Set(['200', '301', '202', '103', '504', '105', '206', '307', '408', '309', '410', '511', '412', '213', '514', '115']),
+    B: new Set(['200', '301', '202', '103', '504', '105', '206', '307', '408', '309', '410', '511', '316', '217', '418', '519']),
+    common: new Set(['200', '301', '202', '103', '504', '105', '206', '307', '408', '309', '410', '511']),
+    uniqueA: new Set(['412', '213', '514', '115']),
+    uniqueB: new Set(['316', '217', '418', '519']),
+  };
+}
+
 /** get the partner from the game state
  */
 function getPartner(sessionId, gameState) {
   return gameState[gameState[sessionId].partnerSid];
 }
 
-/** TODO */
-function createInitialState() {
-  return {
-    A: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-    B: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 16, 17, 18, 19],
-    common: new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
-    uniqueA: new Set([12, 13, 14, 15]),
-    uniqueB: new Set([16, 17, 18, 19]),
-  };
-}
+// ======================================================
 
-/** finds another user without partner or former partner and
+/** finds another user without partner or the former partner and
  * initialises the game state */
 function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
   let gameState = null;
@@ -119,8 +125,9 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
   sStore.rforEach((session, sessId) => {
     if (gameState == null) {
       const jPartner = JSON.parse(session);
+      // an other session that is not paired or is paired with requester
       if (sessId !== reqSid && jPartner.pairedWith === gameStateId) {
-        // found unpaired or old session, check if connected
+        // found unpaired or former partner, check if connected
         const foundPartnerSpark = findPartnerSpark(spk, sessId);
         if (foundPartnerSpark != null) {
           // partner connection exists
@@ -130,7 +137,8 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
             // verify existing game state
             if (existingState[sessId] === undefined || existingState[reqSid] === undefined) {
               // session IDs in game state do not match session data of partners
-              logger.warn(`resetting pair ${jRequester.pairedWith} ${jPartner.pairedWith}`);
+              // this would be unexpected
+              logger.warn(`resetting pair ${gameStateId} : ${jRequester.pairedWith} + ${jPartner.pairedWith}`);
               resetSessionToUnpaired(reqSid, sStore);
               resetSessionToUnpaired(sessId, sStore);
               gameStates.del(gameStateId);
@@ -189,7 +197,11 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
           // save new pair
           sStore.set(sessId, JSON.stringify(jPartner), maxAge);
           sStore.set(reqSid, JSON.stringify(jRequesterCopy), maxAge);
+        } else {
+          // former partner not connected
         }
+      } else {
+        // this session is not available as partner
       }
     }
   });
@@ -198,7 +210,8 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
 
 /** find the spark of the partner
 after a connection has been established
-@returns null if not paired in session store
+@returns game state info
+@returns an error string if not paired in session store
 or partner not in primus connections */
 function getStateCheckPartner(sprk, sStore) {
   const ownSid = extractSid(sprk.headers.cookie);
@@ -231,22 +244,10 @@ function getStateCheckPartner(sprk, sStore) {
   return { state: 'partnerdisconnected' };
 }
 
+// ====================================================== outgoing messages
 
-function checkTurnConditions(state) {
-  if (state.turnCount === 0) {
-    if (state.currentSelection.size === 4) {
-      return null;
-    }
-    return 'select 4';
-  }
-  if (state.currentSelection.size === 2) {
-    return null;
-  }
-  return 'select 2';
-}
-
-function writeMsg(sprk, msg, info) {
-  sprk.write({ msg, info });
+function writeMsg(sprk, msg) {
+  sprk.write({ msg });
 }
 
 function writeLog(logName, jContent) {
@@ -258,25 +259,19 @@ function writeLog(logName, jContent) {
   });
 }
 
-function broadcast(sprk, partnerSprk, data, role) {
+function broadcastWithLog(sprk, partnerSprk, data, role, logName) {
   const dataCopy = Object.assign({}, data);
   dataCopy.role = role;
   sprk.write(dataCopy);
   partnerSprk.write(dataCopy);
-  return dataCopy;
-}
-
-function broadcastWithLog(sprk, partnerSprk, data, role, logName) {
-  const dataCopy = broadcast(sprk, partnerSprk, data, role);
   writeLog(logName, dataCopy);
 }
-
 
 function getTurnData(player, state, turn) {
   return {
     turn,
     gameId: state.gameId,
-    board: player.board,
+    board: Array.from(player.board),
     undosLeft: state.undosLeft,
     turnCount: state.turnCount,
     role: player.role,
@@ -285,21 +280,27 @@ function getTurnData(player, state, turn) {
 
 function getGameData(state, requester, partner, ownTurn) {
   return {
+    turnCount: state.turnCount,
+    turn: (ownTurn) ? requester.role : partner.role,
+    currentSelection: Array.from(state.currentSelection),
     [requester.role]: {
-      board: requester.board,
+      board: Array.from(requester.board),
     },
     [partner.role]: {
-      board: partner.board,
+      board: Array.from(partner.board),
     },
+    undosLeft: state.undosLeft,
     gameId: state.gameId,
     common: Array.from(state.common),
     uniqueA: Array.from(state.uniqueA),
     uniqueB: Array.from(state.uniqueB),
-    turn: (ownTurn) ? requester.role : partner.role,
-    turnCount: state.turnCount,
-    undosLeft: state.undosLeft,
-    currentSelection: Array.from(state.currentSelection),
   };
+}
+
+function broadcastTurn(state, requester, partner, ownTurn) {
+  requester.spark.write(getTurnData(requester, state, ownTurn));
+  partner.spark.write(getTurnData(partner, state, !ownTurn));
+  writeLog(state.id, getGameData(state, requester, partner, ownTurn));
 }
 
 function registerClick(state, requester, partner, ownTurn, id, selected) {
@@ -317,10 +318,19 @@ function registerClick(state, requester, partner, ownTurn, id, selected) {
   writeLog(state.id, getGameData(stateToUpdate, requester, partner, ownTurn));
 }
 
-function broadcastTurn(state, requester, partner, ownTurn) {
-  requester.spark.write(getTurnData(requester, state, ownTurn));
-  partner.spark.write(getTurnData(partner, state, !ownTurn));
-  writeLog(state.id, getGameData(state, requester, partner, ownTurn));
+// ====================================================== turns
+
+function checkTurnConditions(state) {
+  if (state.turnCount === 0) {
+    if (state.currentSelection.size === 4) {
+      return null;
+    }
+    return 'select 4';
+  }
+  if (state.currentSelection.size === 2) {
+    return null;
+  }
+  return 'select 2';
 }
 
 // ends requesters turn in session store
@@ -331,37 +341,27 @@ function endTurn(state, partner, requester, ownTurn) {
   }
   const checkResult = checkTurnConditions(state);
   if (checkResult != null) {
-    writeMsg(requester.spark, checkResult, '');
+    writeMsg(requester.spark, checkResult);
     return;
   }
 
   const stateToUpdate = gameStates.get(state.id);
-
-  stateToUpdate.turnCount += 1;
-
-  const rBoard = [];
-  state[requester.sessionId].board.forEach((elem) => {
-    if (!state.currentSelection.has(elem)) {
-      rBoard.push(elem);
-    }
-  });
-  const pBoard = [];
-  state[partner.sessionId].board.forEach((elem) => {
-    if (!state.currentSelection.has(elem)) {
-      pBoard.push(elem);
-    }
+  // remove selection from player boards
+  state.currentSelection.forEach((val) => {
+    stateToUpdate[requester.sessionId].board.delete(val);
+    stateToUpdate[partner.sessionId].board.delete(val);
   });
 
   stateToUpdate.currentSelection.clear();
-  stateToUpdate[requester.sessionId].board = rBoard;
-  stateToUpdate[partner.sessionId].board = pBoard;
+  stateToUpdate.turnCount += 1;
   stateToUpdate.turn = partner.sessionId;
+
   gameStates.set(state.id, stateToUpdate);
   writeLog(state.id, getGameData(stateToUpdate, requester, partner, !ownTurn));
   broadcastTurn(stateToUpdate, requester, partner, !ownTurn);
 }
 
-// ======================================================
+// ====================================================== handler pair establishment
 
 const tg = function connection(spark) {
   // we have the sessionStore as 'this.store'
@@ -372,24 +372,25 @@ const tg = function connection(spark) {
   const requesterSid = extractSid(spark.headers.cookie);
   if (requesterSid == null) {
     logger.info('connection without cookie');
-    writeMsg(spark, 'cookie expired or cookies disabled', '');
+    writeMsg(spark, 'Cookies bitte zulassen.');
     return;
   }
   const jRequesterSession = JSON.parse(syncSession(requesterSid, sessionStore));
 
-  writeMsg(spark, 'welcome', `${requesterSid}//${spark.id}`);
+  writeMsg(spark, 'Willkommen!');
   logger.info('new connection');
 
   if (jRequesterSession.pairedWith === 'noone') {
     // new connection or server restart
     // going to find new partner
-    writeMsg(spark, 'finding...', requesterSid + spark.id);
+    writeMsg(spark, 'Suche neuen Mitspieler...');
   } else {
     // unexpired session connecting again
     // going to check if former partner is still there
-    writeMsg(spark, 'retrieving...', '');
+    writeMsg(spark, 'Versuche letzen Mitspieler zu finden, ggf. "Neuer Partner" klicken');
   }
 
+  // try to find a partner
   const gameState = findPartnerCheckConnection(spark, requesterSid,
     jRequesterSession, sessionStore);
 
@@ -397,18 +398,16 @@ const tg = function connection(spark) {
     // it's a match
     const partner = getPartner(requesterSid, gameState);
     const requester = gameState[requesterSid];
-    writeMsg(requester.spark, 'FOUND', `${requester.role}// game ${gameState.id}//${gameState.gameId}`);
-    writeMsg(partner.spark, 'FOUND', `${partner.role}// game ${gameState.id}//${gameState.gameId}`);
+    writeMsg(requester.spark, 'Mitspieler gefunden.');
+    writeMsg(partner.spark, 'Mitspieler gefunden.');
     // initialize client boards
     broadcastTurn(gameState, requester, partner, gameState.turn === requesterSid);
   } else {
-    // reset in case of a retrieved session where partner is not connected
-    // resetSessionToUnpaired(jStoredSid, reqSid, sessionStore);
     // no partner found yet
-    writeMsg(spark, 'waitforpartner:wait TODOnew', '');
+    writeMsg(spark, 'Warten auf Mitspieler...');
   }
 
-  // ======================================================
+  // ====================================================== handler incoming data
 
   spark.on('data', (packet) => {
     if (!packet) return;
@@ -416,6 +415,7 @@ const tg = function connection(spark) {
     const {
       state, partner, requester, ownturn,
     } = getStateCheckPartner(spark, sessionStore);
+    // the requester is connected, while the partner might not be
 
     if (state === 'noone') {
       writeMsg(spark, 'unpaired:reload', '');
@@ -430,7 +430,6 @@ const tg = function connection(spark) {
       if (data.txt !== undefined) {
         broadcastWithLog(spark, partner.spark, data, requester.role, state.id);
       } else if (data.act !== undefined) {
-        // only click
         if (data.act === 'click') {
           registerClick(state, requester, partner, ownturn, data.id, data.selected);
         }
@@ -440,10 +439,10 @@ const tg = function connection(spark) {
         logger.info(`resetting pair ${state.id}`);
         writeLog(state.id, { resetBy: requester.role });
         resetSessionToUnpaired(requester.sessionId, sessionStore);
-        resetSessionToUnpaired(partner.sessionId, sessionStore);
-        gameStates.del(state.id);
-        writeMsg(spark, 'resetdone:reload', '');
-        writeMsg(partner.spark, 'resetdone:reload', '');
+        // resetSessionToUnpaired(partner.sessionId, sessionStore);
+        // gameStates.del(state.id);
+        writeMsg(spark, 'Spiel wurde verlassen.');
+        writeMsg(partner.spark, 'Mitspieler hat das Spiel verlassen, ggf. "Neuer Partner" klicken');
       } else if (data.msg !== undefined) {
         // TODO
       }
@@ -451,32 +450,13 @@ const tg = function connection(spark) {
   });
 
   spark.on('open', (_packet) => {
-
-  });
-  spark.on('reconnect', () => {
-
-  });
-  spark.on('online', () => {
-
-  });
-  spark.on('offline', () => {
-
-  });
-  spark.on('error', (_err) => {
-
+    writeMsg(spark, 'sp_open');
   });
   spark.on('end', () => {
-    // tab closed
-    const {
-      partner,
-    } = getStateCheckPartner(spark, sessionStore);
-    if (partner != null) {
-      writeMsg(partner.spark, 'partnerdisconnected:wait TODOnew', spark.id);
-      // resetSessionToUnpaired(jStoredSid, reqSid, sessionStore);
-    }
+    writeMsg(spark, 'sp_end');
   });
   spark.on('close', () => {
-
+    writeMsg(spark, 'sp_close');
   });
 };
 

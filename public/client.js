@@ -110,7 +110,7 @@
     if (data.txt !== undefined) {
       addMessage(`${data.role}: ${data.txt}`);
     } else if (data.msg !== undefined) {
-      addMessage(`${data.msg} / ${data.info}`);
+      addMessage(`MODERATOR: ${data.msg}`);
     } else if (data.turn !== undefined) {
       const imageIds = data.board;
       if (boardImages.size === 0) {
@@ -118,16 +118,16 @@
         for (let i = 0; i < imageIds.length; i += 1) {
           const imgId = imageIds[i];
           boardImages.add(imgId);
-          const row = Math.trunc(i / 4);
-          const col = i % 4;
+          const row = Math.trunc(i / 7);
+          const col = i % 7;
           const group = draw.group();
           // for contrast and as selection indicator
-          group.rect(21, 21);
+          group.rect(7, 7);
           group.id(`img${imgId}`);
           group.data('selected', false);
-          group.move(col * 25 + 2, row * 25 + 2);
-          const image = group.image(`g${data.gameId}/i${imgId}.png`);
-          image.size(20, 20).move(0.5, 0.5);
+          group.move(col * 8 + 1, row * 8 + 1);
+          const image = group.image(`g${data.gameId}/${imgId}.jpg`);
+          image.size(7, 7);
         }
       } else {
         // remove delete images
@@ -161,32 +161,20 @@
         addMessage('YOUR TURN');
       } else {
         $('#endTurn').prop('disabled', true);
-        addMessage('TURN ENDED');
+        addMessage('NOT your TURN');
       }
     }
   });
 
   // =========================== further WS handlers
 
-  primus.on('reconnect', () => {
-    console.log('reconnect', 'Reconnect', 'Starting the reconnect attempt, hopefully we get a connection!');
-  });
-  primus.on('online', () => {
-    console.log('network', 'Online', 'We have regained control over our internet connection.');
-  });
-  primus.on('offline', () => {
-    console.log('network', 'Offline', 'We lost our internet connection.');
-  });
   primus.on('open', () => {
-    console.log('open', 'Open', 'The connection has been established.');
-  });
-  primus.on('error', (err) => {
-    console.log('error', 'Erorr', `An unknown error has occured <code>${err.message}</code>`);
+    addMessage('cl_open');
   });
   primus.on('end', () => {
-    addMessage('connection ended by server');
+    addMessage('cl_end');
   });
   primus.on('close', () => {
-    console.log('close', 'close', 'We\'ve lost the connection to the server.');
+    addMessage('cl_close');
   });
 }).call(this);
