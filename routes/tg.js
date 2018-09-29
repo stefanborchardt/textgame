@@ -138,9 +138,14 @@ function createInitialState() {
 }
 
 /** get the partner from the game state
+ * @returns null if 
  */
 function getPartner(sessionId, gameState) {
-  return gameState[gameState[sessionId].partnerSid];
+  const ownState = gameState[sessionId];
+  // if (ownState === undefined) {
+  //   return null;
+  // }
+  return gameState[ownState.partnerSid];
 }
 
 // ======================================================
@@ -242,7 +247,7 @@ after a connection has been established
 @returns game state info
 @returns an error string if not paired in session store
 or partner not in primus connections */
-function getStateCheckPartner(sprk, ownSid, sStore) {
+function checkPartnerGetState(sprk, ownSid, sStore) {
   const jSession = JSON.parse(syncSession(ownSid, sStore));
 
   const gameStateId = jSession.pairedWith;
@@ -252,6 +257,13 @@ function getStateCheckPartner(sprk, ownSid, sStore) {
   }
 
   const state = gameStates.get(gameStateId);
+  if (state == null) {
+    // former partner has left game
+    logger.warn(`resetting partner ${gameStateId}`);
+    resetSessionToUnpaired(ownSid, sStore);
+    return { state: 'reset' };
+  }
+
   const partner = getPartner(ownSid, state);
   let found = false;
   sprk.primus.forEach((spk, id) => {
@@ -268,6 +280,7 @@ function getStateCheckPartner(sprk, ownSid, sStore) {
       state, partner, requester, ownturn,
     };
   }
+  logger.info('spark not connected');
   return { state: 'partnerdisconnected' };
 }
 
@@ -440,22 +453,28 @@ const tg = function connection(spark) {
     if (!packet) return;
 
     const reqSid = extractSid(spark.headers.cookie);
+
     const {
       state, partner, requester, ownturn,
-    } = getStateCheckPartner(spark, reqSid, sessionStore);
+    } = checkPartnerGetState(spark, reqSid, sessionStore);
 
     if (state === 'noone') {
+      // game reset by partner
       logger.warn(`resetting partner ${reqSid}`);
       writeMsg(spark, 'UNPAIRED PARTNER COMMUNICATING');
     } else if (state === 'partnerdisconnected') {
       const data = JSON.parse(packet);
       if (data.reset !== undefined) {
         logger.info(`resetting partner ${reqSid}`);
+        const jSession = JSON.parse(syncSession(reqSid, sessionStore));
+        gameStates.del(jSession.pairedWith);
         resetSessionToUnpaired(reqSid, sessionStore);
         writeMsg(spark, 'Spiel wurde verlassen.');
       } else {
-        writeMsg(spark, 'Mitspieler hat das Spiel verlassen, ggf. "Neuer Partner" klicken');
+        writeMsg(spark, 'Mitspieler nicht erreichbar, warten oder "Neuer Partner" klicken');
       }
+    } else if (state === 'reset') {
+      // handled in checkPartnerGetState()
     } else {
       const data = JSON.parse(packet);
 
@@ -470,8 +489,10 @@ const tg = function connection(spark) {
       } else if (data.reset !== undefined) {
         logger.info(`resetting pair ${state.id}`);
         writeLog(state.id, { resetBy: requester.role });
+        gameStates.del(state.id);
         resetSessionToUnpaired(requester.sessionId, sessionStore);
         writeMsg(spark, 'Spiel wurde verlassen.');
+        spark.end();
         writeMsg(partner.spark, 'Mitspieler hat das Spiel verlassen, ggf. "Neuer Partner" klicken');
       } else if (data.msg !== undefined) {
         // TODO

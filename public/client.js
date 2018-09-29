@@ -13,12 +13,25 @@
 
   const draw = SVG('drawing').viewbox(0, 0, 100, 100);
 
-  // const dragArea = {
-  //   minX: 0,
-  //   minY: 0,
-  //   maxX: 100,
-  //   maxY: 100,
-  // };
+  // animation
+  const easing = (pos) => {
+    if (pos === 1) {
+      return 1;
+    }
+    return Math.sin(pos * Math.PI / 2);
+  };
+
+  const ANIMSPD = 100;
+
+  function getGroup(event) {
+    const tg = event.target;
+    if (tg.firstChild == null) {
+      return tg.parentElement.instance;
+    }
+    return tg.instance;
+  }
+
+  const boardImages = new Set();
 
   // ################  OUTGOING  Chat
   function sendText() {
@@ -50,34 +63,27 @@
 
   $('#newPartner').on('click', () => {
     primus.write(JSON.stringify({ reset: true }));
-    // reload will restart the WS connection, which seems necessary
-    location.reload();
+    // reload to restart the game with a new partner
+    setTimeout(() => {
+      location.reload();
+    }, 200);
   });
 
   // ===========================================
   // =====================  INCOMING WS Handler
 
-  function getGroup(event) {
-    const tg = event.target;
-    if (tg.firstChild == null) {
-      return tg.parentElement.instance;
-    }
-    return tg.instance;
-  }
-
-  const boardImages = new Set();
-
   function clickHandler(event) {
     const grp = getGroup(event);
     const rect = grp.node.firstChild.instance;
     const img = grp.node.lastChild.instance;
-    // img.front();
     const selected = !grp.data('selected');
     grp.data('selected', selected);
     if (selected) {
+      grp.animate(ANIMSPD, easing).scale(1.5, 1.5).animate(ANIMSPD, easing).scale(2, 2);
       img.opacity(0.4);
       rect.fill('red');
     } else {
+      grp.animate(ANIMSPD, easing).scale(1.5, 1.5).animate(ANIMSPD, easing).scale(2, 2);
       img.opacity(1);
       rect.fill('black');
     }
@@ -113,25 +119,30 @@
           group.id(`img${imgId}`);
           group.data('selected', false);
           group.move(col * 14 + 1, row * 14 + 1);
-          const image = group.image(`g0/${imgId}.jpg`);
-          image.size(13, 13);
-          image.on('mouseover', (event) => {
+          group.on('mouseover', (event) => {
             // TODO also move images at edges a little to center
             const grp = getGroup(event);
             grp.front();
-            grp.scale(2, 2);
+            grp.animate(ANIMSPD, easing).scale(2, 2);
           });
-          image.on('mouseout', (event) => {
+          group.on('mouseout', (event) => {
             const grp = getGroup(event);
-            grp.scale(1, 1);
+            grp.animate(ANIMSPD, easing).scale(1, 1);
           });
+          const image = group.image(`g0/${imgId}.jpg`);
+          image.size(13, 13);
         }
       } else {
         // remove deleted images
         const turnImages = new Set(imageIds);
         boardImages.forEach((elem) => {
           if (!turnImages.has(elem)) {
-            $(`#img${elem}`).remove();
+            const grp = $(`#img${elem}`)[0].instance;
+            new Promise(() => {
+              grp.animate(250, easing).scale(1.5, 1.5).animate(250, easing).scale(0, 0);
+            }).then(() => {
+              $(`#img${elem}`).remove();
+            });
           }
         });
       }
@@ -141,6 +152,7 @@
           group.on('click', (event) => { clickHandler(event); });
         }
         $('#endTurn').prop('disabled', false);
+        addMessage('Nächster Zug');
       } else {
         for (let i = 0; i < imageIds.length; i += 1) {
           const group = $(`#img${imageIds[i]}`);
@@ -150,16 +162,6 @@
       }
       $('#turncount').text(data.turnCount);
       $('#undos').text(data.undosLeft);
-    } else if (data.act !== undefined) {
-      SVG.get(data.elem).move(data.x, data.y);
-    } else if (data.turnover !== undefined) {
-      if (data.turnover) {
-        $('#endTurn').prop('disabled', false);
-        addMessage('YOUR TURN');
-      } else {
-        $('#endTurn').prop('disabled', true);
-        addMessage('NOT your TURN');
-      }
     }
   });
 
