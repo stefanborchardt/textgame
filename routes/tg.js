@@ -97,14 +97,43 @@ function getLogname(id1, id2) {
   return `${identifier}`;
 }
 
+/** Shuffles array in place */
+function shuffle(a) {
+  const r = a;
+  for (let i = a.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [r[i], r[j]] = [r[j], r[i]];
+  }
+  return r;
+}
+
 /** TODO */
 function createInitialState() {
+  // 49 photos for each partner, 10 of which not shared
+  // first digit of photo indicates category
+  const allImages = new Set();
+  while (allImages.size < (39 + 10 + 10)) {
+    // photo file names 100..599
+    allImages.add(Math.floor(Math.random() * 500 + 100).toString());
+  }
+
+  // game state will be stored as sets,
+  // arrays used for indexed access and shuffling
+  const allImagesArray = Array.from(allImages);
+  // hidden from players:
+  const common = allImagesArray.slice(0, 39);
+  const uniqueA = allImagesArray.slice(39, 49);
+  const uniqueB = allImagesArray.slice(49, 59);
+  // visible to respective player:
+  const boardA = shuffle(common.concat(uniqueA));
+  const boardB = shuffle(common.concat(uniqueB));
+
   return {
-    A: new Set(['200', '301', '202', '103', '504', '105', '206', '307', '408', '309', '410', '511', '412', '213', '514', '115']),
-    B: new Set(['200', '301', '202', '103', '504', '105', '206', '307', '408', '309', '410', '511', '316', '217', '418', '519']),
-    common: new Set(['200', '301', '202', '103', '504', '105', '206', '307', '408', '309', '410', '511']),
-    uniqueA: new Set(['412', '213', '514', '115']),
-    uniqueB: new Set(['316', '217', '418', '519']),
+    A: new Set(boardA),
+    B: new Set(boardB),
+    common: new Set(common),
+    uniqueA: new Set(uniqueA),
+    uniqueB: new Set(uniqueB),
   };
 }
 
@@ -182,7 +211,7 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
                 role: 'B',
                 board: initialBoard.B,
               },
-              gameId: 0,
+              name: 'L5-test-500',
               common: initialBoard.common,
               uniqueA: initialBoard.uniqueA,
               uniqueB: initialBoard.uniqueB,
@@ -213,9 +242,7 @@ after a connection has been established
 @returns game state info
 @returns an error string if not paired in session store
 or partner not in primus connections */
-function getStateCheckPartner(sprk, sStore) {
-  const ownSid = extractSid(sprk.headers.cookie);
-
+function getStateCheckPartner(sprk, ownSid, sStore) {
   const jSession = JSON.parse(syncSession(ownSid, sStore));
 
   const gameStateId = jSession.pairedWith;
@@ -270,7 +297,7 @@ function broadcastWithLog(sprk, partnerSprk, data, role, logName) {
 function getTurnData(player, state, turn) {
   return {
     turn,
-    gameId: state.gameId,
+    name: state.name,
     board: Array.from(player.board),
     undosLeft: state.undosLeft,
     turnCount: state.turnCount,
@@ -290,7 +317,7 @@ function getGameData(state, requester, partner, ownTurn) {
       board: Array.from(partner.board),
     },
     undosLeft: state.undosLeft,
-    gameId: state.gameId,
+    name: state.name,
     common: Array.from(state.common),
     uniqueA: Array.from(state.uniqueA),
     uniqueB: Array.from(state.uniqueB),
@@ -412,18 +439,23 @@ const tg = function connection(spark) {
   spark.on('data', (packet) => {
     if (!packet) return;
 
+    const reqSid = extractSid(spark.headers.cookie);
     const {
       state, partner, requester, ownturn,
-    } = getStateCheckPartner(spark, sessionStore);
-    // the requester is connected, while the partner might not be
+    } = getStateCheckPartner(spark, reqSid, sessionStore);
 
     if (state === 'noone') {
-      writeMsg(spark, 'unpaired:reload', '');
-      writeLog(state.id, { resetBy: 'unpaired' });
-      const ownSid = extractSid(spark.headers.cookie);
-      resetSessionToUnpaired(ownSid, sessionStore);
+      logger.warn(`resetting partner ${reqSid}`);
+      writeMsg(spark, 'UNPAIRED PARTNER COMMUNICATING');
     } else if (state === 'partnerdisconnected') {
-      writeMsg(spark, 'partnerdisconnected:wait or reset', '');
+      const data = JSON.parse(packet);
+      if (data.reset !== undefined) {
+        logger.info(`resetting partner ${reqSid}`);
+        resetSessionToUnpaired(reqSid, sessionStore);
+        writeMsg(spark, 'Spiel wurde verlassen.');
+      } else {
+        writeMsg(spark, 'Mitspieler hat das Spiel verlassen, ggf. "Neuer Partner" klicken');
+      }
     } else {
       const data = JSON.parse(packet);
 
@@ -439,8 +471,6 @@ const tg = function connection(spark) {
         logger.info(`resetting pair ${state.id}`);
         writeLog(state.id, { resetBy: requester.role });
         resetSessionToUnpaired(requester.sessionId, sessionStore);
-        // resetSessionToUnpaired(partner.sessionId, sessionStore);
-        // gameStates.del(state.id);
         writeMsg(spark, 'Spiel wurde verlassen.');
         writeMsg(partner.spark, 'Mitspieler hat das Spiel verlassen, ggf. "Neuer Partner" klicken');
       } else if (data.msg !== undefined) {

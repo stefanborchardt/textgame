@@ -75,7 +75,7 @@
     const selected = !grp.data('selected');
     grp.data('selected', selected);
     if (selected) {
-      img.opacity(0.5);
+      img.opacity(0.4);
       rect.fill('red');
     } else {
       img.opacity(1);
@@ -86,19 +86,6 @@
       id: grp.id().substring(3),
       selected,
     }));
-    // group.on('mouseover', (event) => {
-    //   const grp = getGroup(event);
-    //   grp.front();
-    //   grp.scale(2, 2);
-    // });
-    // group.on('mouseout', (event) => {
-    //   const grp = getGroup(event);
-    //   grp.scale(1, 1);
-    // });
-    // group.draggable(dragArea);
-    // group.on('dragstart', (event) => {
-    //   event.target.instance.front();
-    // });
   }
 
   primus.on('data', (data) => {
@@ -121,16 +108,26 @@
           const row = Math.trunc(i / 7);
           const col = i % 7;
           const group = draw.group();
-          // for contrast and as selection indicator
-          group.rect(7, 7);
+          // rect as selection indicator
+          group.rect(13, 13);
           group.id(`img${imgId}`);
           group.data('selected', false);
-          group.move(col * 8 + 1, row * 8 + 1);
-          const image = group.image(`g${data.gameId}/${imgId}.jpg`);
-          image.size(7, 7);
+          group.move(col * 14 + 1, row * 14 + 1);
+          const image = group.image(`g0/${imgId}.jpg`);
+          image.size(13, 13);
+          image.on('mouseover', (event) => {
+            // TODO also move images at edges a little to center
+            const grp = getGroup(event);
+            grp.front();
+            grp.scale(2, 2);
+          });
+          image.on('mouseout', (event) => {
+            const grp = getGroup(event);
+            grp.scale(1, 1);
+          });
         }
       } else {
-        // remove delete images
+        // remove deleted images
         const turnImages = new Set(imageIds);
         boardImages.forEach((elem) => {
           if (!turnImages.has(elem)) {
