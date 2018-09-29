@@ -15,10 +15,6 @@ body {
   height: 80vh;
 }
 
-svg {
-  border: 1pt solid black;
-}
-
 #sizing {
   width: 40vw;
   min-width: 30vw;

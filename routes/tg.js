@@ -137,14 +137,9 @@ function createInitialState() {
   };
 }
 
-/** get the partner from the game state
- * @returns null if 
- */
+/** get the partner from the game state */
 function getPartner(sessionId, gameState) {
   const ownState = gameState[sessionId];
-  // if (ownState === undefined) {
-  //   return null;
-  // }
   return gameState[ownState.partnerSid];
 }
 
@@ -216,14 +211,17 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
                 role: 'B',
                 board: initialBoard.B,
               },
-              name: 'L5-test-500',
+              name: 'L5-test-5x100',
               common: initialBoard.common,
               uniqueA: initialBoard.uniqueA,
               uniqueB: initialBoard.uniqueB,
               turn: reqSid,
               turnCount: 0,
-              undosLeft: 2,
+              undosLeft: 3,
+              selectionsLeft: 5,
               currentSelection: new Set(),
+              playerA: reqSid,
+              playerB: sessId,
             };
             gameStates.set(logName, gameState);
           }
@@ -307,21 +305,12 @@ function broadcastWithLog(sprk, partnerSprk, data, role, logName) {
   writeLog(logName, dataCopy);
 }
 
-function getTurnData(player, state, turn) {
-  return {
-    turn,
-    name: state.name,
-    board: Array.from(player.board),
-    undosLeft: state.undosLeft,
-    turnCount: state.turnCount,
-    role: player.role,
-  };
-}
-
-function getGameData(state, requester, partner, ownTurn) {
+/** full game state for logging including the game solution */
+function getGameData(state, requester, partner, isReqTurn) {
   return {
     turnCount: state.turnCount,
-    turn: (ownTurn) ? requester.role : partner.role,
+    turn: (isReqTurn) ? requester.role : partner.role,
+    selectionsLeft: state.selectionsLeft,
     currentSelection: Array.from(state.currentSelection),
     [requester.role]: {
       board: Array.from(requester.board),
@@ -337,28 +326,64 @@ function getGameData(state, requester, partner, ownTurn) {
   };
 }
 
-function broadcastTurn(state, requester, partner, ownTurn) {
-  requester.spark.write(getTurnData(requester, state, ownTurn));
-  partner.spark.write(getTurnData(partner, state, !ownTurn));
-  writeLog(state.id, getGameData(state, requester, partner, ownTurn));
+// =============================== selection
+
+/** game state for selection logging */
+function getShortGameData(state, requester, partner, ownTurn) {
+  return {
+    turnCount: state.turnCount,
+    turn: (ownTurn) ? requester.role : partner.role,
+    selectionsLeft: state.selectionsLeft,
+    currentSelection: Array.from(state.currentSelection),
+    [requester.role]: {
+      board: Array.from(requester.board),
+    },
+  };
 }
 
 function registerClick(state, requester, partner, ownTurn, id, selected) {
-  const selToUpdate = new Set(state.currentSelection);
-  if (selected && !selToUpdate.has(id)) {
-    selToUpdate.add(id);
-  } else if (!selected && selToUpdate.has(id)) {
-    selToUpdate.delete(id);
+  const curSel = state.currentSelection;
+  const stateToUpdate = gameStates.get(state.id);
+  if (selected && !curSel.has(id)) {
+    curSel.add(id);
+    stateToUpdate.selectionsLeft -= 1;
+  } else if (!selected && curSel.has(id)) {
+    curSel.delete(id);
+    stateToUpdate.selectionsLeft += 1;
   } else {
     logger.warn(`selection by ${requester.sessionId} in game ${state.id} not allowed`);
   }
-  const stateToUpdate = gameStates.get(state.id);
-  stateToUpdate.currentSelection = selToUpdate;
+  stateToUpdate.currentSelection = curSel;
   gameStates.set(state.id, stateToUpdate);
-  writeLog(state.id, getGameData(stateToUpdate, requester, partner, ownTurn));
+  requester.spark.write({ updSelLeft: stateToUpdate.selectionsLeft });
+  writeLog(state.id, getShortGameData(stateToUpdate, requester, partner, ownTurn));
 }
 
 // ====================================================== turns
+
+/** game state suitable for sending to the player */
+function getTurnData(player, state, turn) {
+  return {
+    turn,
+    name: state.name,
+    board: Array.from(player.board),
+    undosLeft: state.undosLeft,
+    turnCount: state.turnCount,
+    role: player.role,
+    selectionsLeft: state.selectionsLeft,
+    uniqueLeftA: Array.from(state.uniqueA)
+      .filter(a => state[state.playerA].board.has(a)).length,
+    uniqueLeftB: Array.from(state.uniqueB)
+      .filter(b => state[state.playerB].board.has(b)).length,
+  };
+}
+
+/** sends the current game state to the players */
+function broadcastTurn(state, requester, partner, isReqTurn) {
+  requester.spark.write(getTurnData(requester, state, isReqTurn));
+  partner.spark.write(getTurnData(partner, state, !isReqTurn));
+  writeLog(state.id, getGameData(state, requester, partner, isReqTurn));
+}
 
 function checkTurnConditions(state) {
   if (state.turnCount === 0) {
@@ -447,7 +472,7 @@ const tg = function connection(spark) {
     writeMsg(spark, 'Warten auf Mitspieler...');
   }
 
-  // ====================================================== handler incoming data
+  // ====================================================== handler incoming requests
 
   spark.on('data', (packet) => {
     if (!packet) return;

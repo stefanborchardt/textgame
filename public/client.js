@@ -104,6 +104,8 @@
       addMessage(`${data.role}: ${data.txt}`);
     } else if (data.msg !== undefined) {
       addMessage(`MODERATOR: ${data.msg}`);
+    } else if (data.updSelLeft !== undefined) {
+      $('#selects').text(data.updSelLeft);
     } else if (data.turn !== undefined) {
       const imageIds = data.board;
       if (boardImages.size === 0) {
@@ -162,18 +164,9 @@
       }
       $('#turncount').text(data.turnCount);
       $('#undos').text(data.undosLeft);
+      $('#selects').text(data.selectionsLeft);
+      $('#unqA').text(data.uniqueLeftA);
+      $('#unqB').text(data.uniqueLeftB);
     }
-  });
-
-  // =========================== further WS handlers
-
-  primus.on('open', () => {
-    addMessage('cl_open');
-  });
-  primus.on('end', () => {
-    addMessage('cl_end');
-  });
-  primus.on('close', () => {
-    addMessage('cl_close');
   });
 }).call(this);
