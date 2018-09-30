@@ -107,12 +107,16 @@ function shuffle(a) {
   return r;
 }
 
+const SET_SIZE = 39;
+const NUM_UNIQUE = 10;
+const UNDOS = 3;
+const SELECTIONS = 5;
+
 /** TODO */
 function createInitialState() {
-  // 49 photos for each partner, 10 of which not shared
   // first digit of photo indicates category
   const allImages = new Set();
-  while (allImages.size < (39 + 10 + 10)) {
+  while (allImages.size < (SET_SIZE + 2 * NUM_UNIQUE)) {
     // photo file names 100..599
     allImages.add(Math.floor(Math.random() * 500 + 100).toString());
   }
@@ -121,9 +125,10 @@ function createInitialState() {
   // arrays used for indexed access and shuffling
   const allImagesArray = Array.from(allImages);
   // hidden from players:
-  const common = allImagesArray.slice(0, 39);
-  const uniqueA = allImagesArray.slice(39, 49);
-  const uniqueB = allImagesArray.slice(49, 59);
+  const common = allImagesArray.slice(0, SET_SIZE);
+  const uniqueA = allImagesArray.slice(SET_SIZE, SET_SIZE + NUM_UNIQUE);
+  const uniqueB = allImagesArray.slice(SET_SIZE + NUM_UNIQUE,
+    SET_SIZE + 2 * NUM_UNIQUE);
   // visible to respective player:
   const boardA = shuffle(common.concat(uniqueA));
   const boardB = shuffle(common.concat(uniqueB));
@@ -202,6 +207,8 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
                 sparkId: spk.id,
                 role: 'A',
                 board: initialBoard.A,
+                unique: initialBoard.uniqueA,
+                messageCount: 0,
               },
               [sessId]: {
                 sessionId: sessId,
@@ -210,16 +217,21 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
                 sparkId: foundPartnerSpark.id,
                 role: 'B',
                 board: initialBoard.B,
+                unique: initialBoard.uniqueB,
+                messageCount: 0,
               },
               name: 'L5-test-5x100',
               common: initialBoard.common,
-              uniqueA: initialBoard.uniqueA,
-              uniqueB: initialBoard.uniqueB,
               turn: reqSid,
               turnCount: 0,
-              undosLeft: 3,
-              selectionsLeft: 5,
+              undosLeft: UNDOS,
+              selectionsLeft: SELECTIONS,
+              extra: {
+                undo: false,
+                incSelection: false,
+              },
               currentSelection: new Set(),
+              previousSelection: new Set(),
               playerA: reqSid,
               playerB: sessId,
             };
@@ -297,12 +309,16 @@ function writeLog(logName, jContent) {
   });
 }
 
-function broadcastWithLog(sprk, partnerSprk, data, role, logName) {
+function broadcastMessage(state, requester, partner, data) {
   const dataCopy = Object.assign({}, data);
-  dataCopy.role = role;
-  sprk.write(dataCopy);
-  partnerSprk.write(dataCopy);
-  writeLog(logName, dataCopy);
+  dataCopy.role = requester.role;
+  requester.spark.write(dataCopy);
+  partner.spark.write(dataCopy);
+
+  const updState = gameStates.get(state.id);
+  updState[requester.sessionId].messageCount += 1;
+  gameStates.set(state.id, updState);
+  writeLog(state.id, dataCopy);
 }
 
 /** full game state for logging including the game solution */
@@ -321,8 +337,8 @@ function getGameData(state, requester, partner, isReqTurn) {
     undosLeft: state.undosLeft,
     name: state.name,
     common: Array.from(state.common),
-    uniqueA: Array.from(state.uniqueA),
-    uniqueB: Array.from(state.uniqueB),
+    uniqueA: Array.from(state[state.playerA].unique),
+    uniqueB: Array.from(state[state.playerB].unique),
   };
 }
 
@@ -361,6 +377,11 @@ function registerClick(state, requester, partner, ownTurn, id, selected) {
 
 // ====================================================== turns
 
+function getUniqueLeft(state, player) {
+  return Array.from(state[player].unique)
+    .filter(val => state[player].board.has(val)).length;
+}
+
 /** game state suitable for sending to the player */
 function getTurnData(player, state, turn) {
   return {
@@ -371,10 +392,9 @@ function getTurnData(player, state, turn) {
     turnCount: state.turnCount,
     role: player.role,
     selectionsLeft: state.selectionsLeft,
-    uniqueLeftA: Array.from(state.uniqueA)
-      .filter(a => state[state.playerA].board.has(a)).length,
-    uniqueLeftB: Array.from(state.uniqueB)
-      .filter(b => state[state.playerB].board.has(b)).length,
+    extra: state.extrass,
+    uniqueLeftA: getUniqueLeft(state, state.playerA),
+    uniqueLeftB: getUniqueLeft(state, state.playerB),
   };
 }
 
@@ -385,38 +405,46 @@ function broadcastTurn(state, requester, partner, isReqTurn) {
   writeLog(state.id, getGameData(state, requester, partner, isReqTurn));
 }
 
-function checkTurnConditions(state) {
-  if (state.turnCount === 0) {
-    if (state.currentSelection.size === 4) {
-      return null;
-    }
-    return 'select 4';
-  }
-  if (state.currentSelection.size === 2) {
-    return null;
-  }
-  return 'select 2';
-}
-
 // ends requesters turn in session store
 // assumes that the partner connection has been checked
 function endTurn(state, partner, requester, ownTurn) {
   if (!ownTurn) {
     logger.warn(`ending turn by ${requester.sessionId} in game ${state.id} not allowed`);
   }
-  const checkResult = checkTurnConditions(state);
-  if (checkResult != null) {
-    writeMsg(requester.spark, checkResult);
+  if (state.selectionsLeft < 0) {
+    writeMsg(requester.spark, 'Bitte weniger auswählen!');
+    return;
+  }
+  if (state.currentSelection.size === 0) {
+    writeMsg(requester.spark, 'Mindestens eins auswählen!');
     return;
   }
 
   const stateToUpdate = gameStates.get(state.id);
+  const unqLeftPrevious = getUniqueLeft(state, state.playerA) + getUniqueLeft(state, state.playerB);
   // remove selection from player boards
   state.currentSelection.forEach((val) => {
     stateToUpdate[requester.sessionId].board.delete(val);
     stateToUpdate[partner.sessionId].board.delete(val);
   });
+  const playerAUqLeftNow = getUniqueLeft(stateToUpdate, stateToUpdate.playerA);
+  const playerBUqLeftNow = getUniqueLeft(stateToUpdate, stateToUpdate.playerB);
+  // calculate unique images lost in this turn
+  const unqLeftNow = playerAUqLeftNow + playerBUqLeftNow;
+  if (unqLeftPrevious - unqLeftNow > 0) {
+    stateToUpdate.extras.incSelection = true;
+    if (stateToUpdate.undosLeft > 0) {
+      stateToUpdate.extras.undo = true;
+    }
+    writeMsg(requester.spark, 'Zusatzaktionen verfügbar. Zum aktivieren bei das gleiche auswählen.');
+  } else {
+    stateToUpdate.extras.incSelection = false;
+    stateToUpdate.extras.undo = false;
+  }
+  // TODO calculate remaining selection with respect to board size
+  stateToUpdate.selectionsLeft = SELECTIONS;
 
+  stateToUpdate.previousSelection = state.currentSelection;
   stateToUpdate.currentSelection.clear();
   stateToUpdate.turnCount += 1;
   stateToUpdate.turn = partner.sessionId;
@@ -504,7 +532,7 @@ const tg = function connection(spark) {
       const data = JSON.parse(packet);
 
       if (data.txt !== undefined) {
-        broadcastWithLog(spark, partner.spark, data, requester.role, state.id);
+        broadcastMessage(state, requester, partner, data);
       } else if (data.act !== undefined) {
         if (data.act === 'click') {
           registerClick(state, requester, partner, ownturn, data.id, data.selected);
