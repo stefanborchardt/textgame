@@ -1,5 +1,5 @@
 (() => {
-  const primus = Primus.connect(`${location.origin}/tg`);
+  const primus = Primus.connect(`${location.origin}`);
 
   const addMessage = (text) => {
     const newLi = document.createElement('li');

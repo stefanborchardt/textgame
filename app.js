@@ -42,7 +42,7 @@ const sessionStore = new MemoryStore({
 });
 app.use(session({
   resave: false,
-  saveUninitialized: false, // don't create session until something stored
+  saveUninitialized: false,
   secret: config.get('session.secret'),
   cookie: {
     secure: true,
@@ -61,10 +61,10 @@ const primus = new Primus(server, {
   parser: 'json',
 });
 
-const tgSocket = require('./tg');
+const tgSocket = require('./tg')(sessionStore.store);
 // this way sessionStore is available to tgSocket
 // so that websocket and http sessions can be matched
-primus.on('connection', tgSocket, sessionStore);
+primus.on('connection', tgSocket);
 // enable once for client JS creation
 // primus.save('public/external/primus.js');
 
@@ -74,9 +74,9 @@ const primusEasy = new Primus(server, {
   parser: 'json',
 });
 
-const easySocket = require('./te');
+const easySocket = require('./te')(sessionStore.store);
 
-primusEasy.on('connection', easySocket.te, sessionStore);
+primusEasy.on('connection', easySocket);
 // enable once for client JS creation
 // primusEasy.save('public/external/primuseasy.js');
 

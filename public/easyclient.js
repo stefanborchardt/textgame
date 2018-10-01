@@ -1,5 +1,5 @@
 (() => {
-  const primus = Primus.connect(`${location.origin}/te`);
+  const primus = Primus.connect(`${location.origin}`);
 
   const addMessage = (text) => {
     const newLi = document.createElement('li');
@@ -110,14 +110,14 @@
       const imageIds = data.board;
       if (boardImages.size === 0) {
         // first time drawing 
-        const GRIDSIZE = 4;
+        const GRIDDIM = 4;
         const IMGSIZE = 20;
         const MARGIN = 5;
         for (let i = 0; i < imageIds.length; i += 1) {
           const imgId = imageIds[i];
           boardImages.add(imgId);
-          const row = Math.trunc(i / GRIDSIZE);
-          const col = i % GRIDSIZE;
+          const row = Math.trunc(i / GRIDDIM);
+          const col = i % GRIDDIM;
           const group = draw.group();
           // rect as selection indicator
           group.rect(IMGSIZE, IMGSIZE);
