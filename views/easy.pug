@@ -1,0 +1,38 @@
+include head
+
+block content
+	h1= title
+
+	div#content
+
+		div#drawing
+
+		div#sizing
+			div#status 
+				div 
+					| Unterschiede übrig:  
+					span#unqA
+					| /  
+					span#unqB
+				div Züge bisher 
+					span#turncount 
+				div Rückgängig verfügbar 
+					span#undos
+				div Auswahlen verfügbar
+					span#selects
+			
+			div#chat
+				ul#messages
+			
+			div#write
+				input#box(type='text')
+				button#sendText Send
+
+			div(class='wideButton')
+				button#endTurn Zug beenden
+			div(class='wideButton')
+				button#newPartner Neuer Partner
+
+	include footeasy
+
+	

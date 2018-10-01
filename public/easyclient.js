@@ -1,5 +1,5 @@
 (() => {
-  const primus = Primus.connect(`${location.origin}/tg`);
+  const primus = Primus.connect(`${location.origin}/te`);
 
   const addMessage = (text) => {
     const newLi = document.createElement('li');
@@ -110,17 +110,21 @@
       const imageIds = data.board;
       if (boardImages.size === 0) {
         // first time drawing 
+        const GRIDSIZE = 4;
+        const IMGSIZE = 20;
+        const MARGIN = 5;
         for (let i = 0; i < imageIds.length; i += 1) {
           const imgId = imageIds[i];
           boardImages.add(imgId);
-          const row = Math.trunc(i / 7);
-          const col = i % 7;
+          const row = Math.trunc(i / GRIDSIZE);
+          const col = i % GRIDSIZE;
           const group = draw.group();
           // rect as selection indicator
-          group.rect(13, 13);
+          group.rect(IMGSIZE, IMGSIZE);
           group.id(`img${imgId}`);
           group.data('selected', false);
-          group.move(col * 14 + 1, row * 14 + 1);
+          group.move(col * (IMGSIZE + MARGIN) + MARGIN,
+            row * (IMGSIZE + MARGIN) + MARGIN);
           group.on('mouseover', (event) => {
             // TODO also move images at edges a little to center
             const grp = getGroup(event);
@@ -131,8 +135,8 @@
             const grp = getGroup(event);
             grp.animate(ANIMSPD, easing).scale(1, 1);
           });
-          const image = group.image(`g0/${imgId}.jpg`);
-          image.size(13, 13);
+          const image = group.image(`g1/${imgId}.jpg`);
+          image.size(IMGSIZE, IMGSIZE);
         }
       } else {
         // remove deleted images

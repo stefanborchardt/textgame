@@ -16,7 +16,7 @@ const logger = winston.createLogger({
   ),
   transports: [
     new winston.transports.File({
-      filename: 'logs/tg/combined.log',
+      filename: 'logs/te/combined.log',
     }),
   ],
 });
@@ -107,28 +107,28 @@ function shuffle(a) {
   return r;
 }
 
-const SET_SIZE = 39;
-const NUM_UNIQUE = 10;
-const UNDOS = 3;
-const SELECTIONS = 5;
+const NUM_COMMON = 12;
+const NUM_UNIQUE = 4;
+const UNDOS = 1;
+const SELECTIONS = 3;
 
 /** TODO */
 function createInitialState() {
   // first digit of photo indicates category
   const allImages = new Set();
-  while (allImages.size < (SET_SIZE + 2 * NUM_UNIQUE)) {
+  while (allImages.size < (NUM_COMMON + 2 * NUM_UNIQUE)) {
     // photo file names 100..599
-    allImages.add(Math.floor(Math.random() * 500 + 100).toString());
+    allImages.add(Math.floor(Math.random() * 200 + 100).toString());
   }
 
   // game state will be stored as sets,
   // arrays used for indexed access and shuffling
   const allImagesArray = Array.from(allImages);
   // hidden from players:
-  const common = allImagesArray.slice(0, SET_SIZE);
-  const uniqueA = allImagesArray.slice(SET_SIZE, SET_SIZE + NUM_UNIQUE);
-  const uniqueB = allImagesArray.slice(SET_SIZE + NUM_UNIQUE,
-    SET_SIZE + 2 * NUM_UNIQUE);
+  const common = allImagesArray.slice(0, NUM_COMMON);
+  const uniqueA = allImagesArray.slice(NUM_COMMON, NUM_COMMON + NUM_UNIQUE);
+  const uniqueB = allImagesArray.slice(NUM_COMMON + NUM_UNIQUE,
+    NUM_COMMON + 2 * NUM_UNIQUE);
   // visible to respective player:
   const boardA = shuffle(common.concat(uniqueA));
   const boardB = shuffle(common.concat(uniqueB));
@@ -226,7 +226,7 @@ function findPartnerCheckConnection(spk, reqSid, jRequester, sStore) {
               turnCount: 0,
               undosLeft: UNDOS,
               selectionsLeft: SELECTIONS,
-              extra: {
+              extras: {
                 undo: false,
                 incSelection: false,
               },
@@ -301,7 +301,7 @@ function writeMsg(sprk, msg) {
 }
 
 function writeLog(logName, jContent) {
-  const logPath = `logs${path.sep}tg${path.sep}${logName}.log`;
+  const logPath = `logs${path.sep}te${path.sep}${logName}.log`;
   fs.open(logPath, 'a', (_err, fd) => {
     fs.appendFile(fd, JSON.stringify(jContent) + os.EOL, (_err) => {
       fs.close(fd, (_err) => { });
@@ -456,7 +456,7 @@ function endTurn(state, partner, requester, ownTurn) {
 
 // ====================================================== handler pair establishment
 
-const tg = function connection(spark) {
+const te = function connection(spark) {
   // we have the sessionStore as 'this.store'
   const sessionStore = this.store;
   // we use the browser session to identify a user
@@ -564,4 +564,4 @@ const tg = function connection(spark) {
   });
 };
 
-module.exports = tg;
+module.exports = te;

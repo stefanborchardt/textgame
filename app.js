@@ -66,13 +66,27 @@ const tgSocket = require('./routes/tg');
 // so that websocket and http sessions can be matched
 primus.on('connection', tgSocket, sessionStore);
 // enable once for client JS creation
-// primus.save("public/javascripts/primus.js");
+// primus.save('public/external/primus.js');
+
+const primusEasy = new Primus(server, {
+  transformer: 'websockets',
+  pathname: '/te',
+  parser: 'json',
+});
+
+const easySocket = require('./routes/te');
+
+primusEasy.on('connection', easySocket, sessionStore);
+// enable once for client JS creation
+// primusEasy.save('public/external/primuseasy.js');
 
 const indexRouter = require('./routes/index');
+const easyRouter = require('./routes/easy');
 const loginRouter = require('./routes/login');
 
-app.use('/', indexRouter);
+app.use('/easy', easyRouter);
 app.use('/login', loginRouter);
+app.use('/', indexRouter);
 
 // when the index router detects an unauthenticated user it redirects
 // to the login page. after sending the login form, we do a basic authentication here
@@ -83,7 +97,7 @@ app.post('/login', (req, res) => {
   }
   if (pwd === req.body.password) {
     req.session.pairedWith = 'noone';
-    res.redirect('/');
+    res.redirect('/easy');
   } else {
     res.redirect('/login');
   }
