@@ -6,6 +6,7 @@ body {
   display: flex;
   flex-direction: row;
   width: 80vw;
+  align-items: center;
 }
 
 #drawing {
@@ -18,8 +19,10 @@ body {
 #sizing {
   width: 40vw;
   min-width: 30vw;
-  display: flex;
-  flex-direction: column;
+}
+
+#status * span {
+  font-weight: bold;
 }
 
 #chat {
@@ -28,38 +31,52 @@ body {
   overflow-y: scroll;
   overflow-x: hidden;
   will-change: scroll-position;
-  margin-bottom: 3vh;
+  margin-bottom: 2vh;
 }
 
 ul {
   list-style: none;
+  padding-inline-start: 1vw;
 }
 li {
   white-space: normal;
 }
 
-#write {
+.inputsection {
+  margin-bottom: 2vh;
   display: flex;
   flex-direction: row;
-  margin-bottom: 3vh;
   width: 100%;
+}
+
+.inputsection > button {
+  display: flex;
+  flex-direction: row;
 }
 
 #write > input {
-  margin-right: 1vh;
+  margin-right: 1vw;
   width: 100%;
 }
 
-#sendText {
-  display: flex;
-  flex-direction: row;
-}
+#extras > input {
+  margin-right: 0.5vw;
+} 
 
-.wideButton {
+#extras > label {
+  margin-right: 1vw;
+  width: 100%;
+} 
+
+.wideButton, #status {
+  margin-bottom: 2vh;
   width: 100%;
 }
 
 .wideButton > button {
-  margin-bottom: 3vh;
   width: 100%;
+}
+
+#newgame {
+  margin-top: 4vh;
 }

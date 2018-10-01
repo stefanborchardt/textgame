@@ -372,9 +372,16 @@ module.exports = (directory,
 
   // ====================================================== turns
 
+  /** @returns the number of unique images that the player has left */
   const getUniqueLeft = (state, player) => (
     Array.from(state[player].unique)
       .filter(val => state[player].board.has(val)).length
+  );
+
+  /** @returns the number of shared images that the players have left */
+  const getCommonLeft = state => (
+    Array.from(state.common)
+      .filter(val => state[state.playerA].board.has(val)).length
   );
 
   /** game state suitable for sending to the player */
@@ -503,6 +510,7 @@ module.exports = (directory,
     writeMsg,
     writeLog,
     getUniqueLeft,
+    getCommonLeft,
     getGameData,
     broadcastTurn,
   };

@@ -1,8 +1,11 @@
-const gameUndos = 1;
-const gameSelections = 3;
+const gParamCommon = 7;
+const gParamUnique = 2;
+const gParamUndos = 1;
+const gParamSelections = 3;
 
 // configure base game
-const g = require('./tgame')('te', 200, 12, 4, gameUndos, gameSelections);
+const g = require('./tgame')('te',
+  200, gParamCommon, gParamUnique, gParamUndos, gParamSelections);
 
 // provide shorthands for frequently used functions
 const { logger, gameStates, writeMsg } = g;
@@ -22,30 +25,43 @@ const endTurn = (state, partner, requester, ownTurn) => {
     return;
   }
 
-  const stateToUpdate = gameStates.get(state.id);
   const unqLeftPrevious = g.getUniqueLeft(state, state.playerA)
     + g.getUniqueLeft(state, state.playerB);
+
   // remove selection from player boards
+  const stateToUpdate = gameStates.get(state.id);
   state.currentSelection.forEach((val) => {
     stateToUpdate[requester.sessionId].board.delete(val);
     stateToUpdate[partner.sessionId].board.delete(val);
   });
+
+  // calculate the number of shared images left
+  const commonLeftNow = g.getCommonLeft(stateToUpdate);
+  // calculate unique images lost in this turn
   const playerAUqLeftNow = g.getUniqueLeft(stateToUpdate, stateToUpdate.playerA);
   const playerBUqLeftNow = g.getUniqueLeft(stateToUpdate, stateToUpdate.playerB);
-  // calculate unique images lost in this turn
   const unqLeftNow = playerAUqLeftNow + playerBUqLeftNow;
+
+  if (commonLeftNow === 0 || unqLeftNow === 0) {
+    // game ends
+    // broadcast end
+    writeMsg(requester.spark, 'ENDE');
+
+  }
+
   if (unqLeftPrevious - unqLeftNow > 0) {
     stateToUpdate.extras.incSelection = true;
     if (stateToUpdate.undosLeft > 0) {
       stateToUpdate.extras.undo = true;
     }
-    writeMsg(requester.spark, 'Zusatzaktionen verfügbar. Zum aktivieren bei das gleiche auswählen.');
+    writeMsg(requester.spark, 'Zusatzaktionen verfügbar. Zum aktivieren beide das gleiche auswählen.');
   } else {
     stateToUpdate.extras.incSelection = false;
     stateToUpdate.extras.undo = false;
   }
-  // TODO calculate remaining selection with respect to board size
-  stateToUpdate.selectionsLeft = gameSelections;
+
+  // calculate number of selections for next turn
+  stateToUpdate.selectionsLeft = commonLeftNow < gParamSelections ? commonLeftNow : gParamSelections;
 
   stateToUpdate.previousSelection = state.currentSelection;
   stateToUpdate.currentSelection.clear();

@@ -10,28 +10,42 @@ block content
 		div#sizing
 			div#status 
 				div 
-					| Unterschiede übrig:  
 					span#unqA
-					| /  
-					span#unqB
-				div Züge bisher 
+					|  / 
+					span#unqB 
+					|  Unterschiede übrig 
+				div 
 					span#turncount 
-				div Rückgängig verfügbar 
+					|  Züge bisher 
+				div 
 					span#undos
-				div Auswahlen verfügbar
+					|  Rückgängig verfügbar 
+				div 
 					span#selects
+					|  extra Auswahl verfügbar 
 			
 			div#chat
 				ul#messages
 			
-			div#write
-				input#box(type='text')
+			div(class='inputsection')#write
+				input(type='text')#box
 				button#sendText Send
+
+			div(class='inputsection')#extras
+				input(type='radio', name='extras', value='undo')#undo
+				label(for='undo') rückgängig
+				input(type='radio', name='extras', value='incsels')#incsels
+				label(for='incsels') Auswahl erhöhen
+				button#sendExtra Send
 
 			div(class='wideButton')
 				button#endTurn Zug beenden
-			div(class='wideButton')
+			div(class='wideButton')#newgame
 				button#newPartner Neuer Partner
+
+	div#footer Bilddaten: Chaladze, G., Kalatozishvili, L. (2017).  
+		a(href='http://chaladze.com/l5/') Linnaeus 5 Dataset 
+		| for Machine Learning.
 
 	include footeasy
 

@@ -109,10 +109,10 @@
     } else if (data.turn !== undefined) {
       const imageIds = data.board;
       if (boardImages.size === 0) {
-        // first time drawing 
-        const GRIDDIM = 4;
-        const IMGSIZE = 20;
-        const MARGIN = 5;
+        // first time drawing
+        const GRIDDIM = 3;
+        const IMGSIZE = 25;
+        const MARGIN = 6;
         for (let i = 0; i < imageIds.length; i += 1) {
           const imgId = imageIds[i];
           boardImages.add(imgId);
