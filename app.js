@@ -61,7 +61,7 @@ const primus = new Primus(server, {
   parser: 'json',
 });
 
-const tgSocket = require('./routes/tg');
+const tgSocket = require('./tg');
 // this way sessionStore is available to tgSocket
 // so that websocket and http sessions can be matched
 primus.on('connection', tgSocket, sessionStore);
@@ -74,9 +74,9 @@ const primusEasy = new Primus(server, {
   parser: 'json',
 });
 
-const easySocket = require('./routes/te');
+const easySocket = require('./te');
 
-primusEasy.on('connection', easySocket, sessionStore);
+primusEasy.on('connection', easySocket.te, sessionStore);
 // enable once for client JS creation
 // primusEasy.save('public/external/primuseasy.js');
 
