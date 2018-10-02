@@ -55,18 +55,18 @@ app.use(session({
 /**
  * Create Primus websocket
  */
-const primus = new Primus(server, {
+const primusLarge = new Primus(server, {
   transformer: 'websockets',
   pathname: '/tg',
   parser: 'json',
 });
 
-const tgSocket = require('./tg')(sessionStore.store);
+const largeSocket = require('./tglarge')(sessionStore.store);
 // this way sessionStore is available to tgSocket
 // so that websocket and http sessions can be matched
-primus.on('connection', tgSocket);
+primusLarge.on('connection', largeSocket);
 // enable once for client JS creation
-// primus.save('public/external/primus.js');
+// primusLarge.save('public/external/primuslarge.js');
 
 const primusEasy = new Primus(server, {
   transformer: 'websockets',
@@ -74,19 +74,31 @@ const primusEasy = new Primus(server, {
   parser: 'json',
 });
 
-const easySocket = require('./te')(sessionStore.store);
+const easySocket = require('./tgeasy')(sessionStore.store);
 
 primusEasy.on('connection', easySocket);
 // enable once for client JS creation
 // primusEasy.save('public/external/primuseasy.js');
 
-const indexRouter = require('./routes/index');
+const primusMedium = new Primus(server, {
+  transformer: 'websockets',
+  pathname: '/tm',
+  parser: 'json',
+});
+const mediumSocket = require('./tgmedium')(sessionStore.store);
+
+primusMedium.on('connection', mediumSocket);
+// primusMedium.save('public/external/primusmedium.js');
+
+const indexRouter = require('./routes/large');
 const easyRouter = require('./routes/easy');
+const mediumRouter = require('./routes/medium');
 const loginRouter = require('./routes/login');
 
+app.use('/', mediumRouter);
 app.use('/easy', easyRouter);
+app.use('/large', indexRouter);
 app.use('/login', loginRouter);
-app.use('/', indexRouter);
 
 // when the index router detects an unauthenticated user it redirects
 // to the login page. after sending the login form, we do a basic authentication here
