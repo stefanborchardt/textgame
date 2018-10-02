@@ -5,21 +5,38 @@ block content
 
 	div#content
 
-		div#drawing
+		div#left
 
-		div#sizing
+			div#intro Sie und Ihr Mitspieler sehen die gleichen Bilder - fast. 
+				| Finden Sie die Unterschiede, indem Sie abwechselnd alle gleichen entfernen. 
+				| Je weniger Züge, desto besser.
+
+			div#drawing
+
+		div#right
+
+			div#playerturn
+				span#active 
+
 			div#status 
-				div 
-					| Unterschiede übrig: 
-					span#unqA
-					|  /  
-					span#unqB
-				div Züge bisher 
-					span#turncount 
-				div Rückgängig verfügbar 
-					span#undos
-				div Auswahlen verfügbar 
+				div Noch bis zu 
 					span#selects
+					|  in diesem Zug entfernen  
+				div 
+					| A 
+					span#unqA
+					|  / B 
+					span#unqB 
+					|  Unterschiede übrig 
+				div 
+					span#turncount 
+					|  Züge bisher 
+				div 
+					span#undosAvailable
+					|  Rückgängig verfügbar 
+				div 
+					span#incselsAvailable
+					|  extra Auswahl verfügbar 
 			
 			div#chat
 				ul#messages
@@ -37,13 +54,15 @@ block content
 
 			div(class='wideButton')
 				button#endTurn Zug beenden
-			div(class='wideButton')
+
+			div(class='wideButton')#newgame
 				button#newPartner Neuer Partner
 
-	div#footer Bilddaten: Chaladze, G., Kalatozishvili, L. (2017).  
-		a(href='http://chaladze.com/l5/') Linnaeus 5 Dataset 
-		| for Machine Learning.
+			div#footer Bilddaten: Chaladze, G., Kalatozishvili, L. (2017).  
+				a(href='http://chaladze.com/l5/') Linnaeus 5 Dataset 
+				| for Machine Learning.
 
 	include foot
+	
 
 	

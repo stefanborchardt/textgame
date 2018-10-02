@@ -1,13 +1,26 @@
 (() => {
   const primus = Primus.connect(`${location.origin}`);
 
-  const addMessage = (text) => {
+  const addMessage = (text, className) => {
     const newLi = document.createElement('li');
     newLi.innerHTML = text;
+    if (className) {
+      newLi.className = className;
+    }
     $('#messages').append(newLi);
     newLi.scrollIntoView(false);
     return true;
   };
+
+  // ######################## initially hide control elements
+
+  const hide = elemId => $(`#${elemId}`).css({ visibility: 'hidden' });
+  const show = elemId => $(`#${elemId}`).css({ visibility: 'visible' });
+
+  hide('endTurn');
+  hide('extras');
+  hide('write');
+  hide('status');
 
   // ########################  SVG
 
@@ -22,6 +35,11 @@
   };
 
   const ANIMSPD = 100;
+  const GRIDDIM = 7;
+  const IMGSIZE = 13;
+  const MARGIN = 1;
+  const CLICKZOOM = 1.3;
+  const HOVERZOOM = 2;
 
   function getGroup(event) {
     const tg = event.target;
@@ -31,7 +49,58 @@
     return tg.instance;
   }
 
+  // hold currently displayed image ids
   const boardImages = new Set();
+
+  function drawImage(i, imgId) {
+    const row = Math.trunc(i / GRIDDIM);
+    const col = i % GRIDDIM;
+    const group = draw.group();
+    group.id(`img${imgId}`);
+    group.data('selected', false);
+    group.move(col * (IMGSIZE + MARGIN) + MARGIN, row * (IMGSIZE + MARGIN) + MARGIN);
+    // rect as selection indicator
+    group.rect(IMGSIZE, IMGSIZE);
+    // zoom on hover
+    group.on('mouseover', (event) => {
+      // TODO also move images at edges a little to center
+      const grp = getGroup(event);
+      grp.front();
+      grp.animate(ANIMSPD, easing).scale(2, 2);
+    });
+    group.on('mouseout', (event) => {
+      const grp = getGroup(event);
+      grp.animate(ANIMSPD, easing).scale(1, 1);
+    });
+    const image = group.image(`g0/${imgId}.jpg`);
+    image.size(IMGSIZE, IMGSIZE);
+    return group;
+  }
+
+  function clickHandler(event) {
+    const grp = getGroup(event);
+    const rect = grp.node.firstChild.instance;
+    const img = grp.node.lastChild.instance;
+    const selected = !grp.data('selected');
+    grp.data('selected', selected);
+    if (selected) {
+      grp.animate(ANIMSPD, easing).scale(CLICKZOOM, CLICKZOOM)
+        .animate(ANIMSPD, easing).scale(HOVERZOOM, HOVERZOOM);
+      img.opacity(0.4);
+      rect.fill('red');
+    } else {
+      grp.animate(ANIMSPD, easing).scale(CLICKZOOM, CLICKZOOM)
+        .animate(ANIMSPD, easing).scale(HOVERZOOM, HOVERZOOM);
+      img.opacity(1);
+      rect.fill('black');
+    }
+    primus.write(JSON.stringify({
+      act: 'click',
+      id: grp.id().substring(3),
+      selected,
+    }));
+    $('#box').focus();
+  }
 
   // ################  OUTGOING  Chat
   function sendText() {
@@ -49,16 +118,22 @@
     }
   });
 
+  //TODO
   const filterInput = inpVal => inpVal.replace(/[^A-Za-z0-9äöüÄÖÜß!'"?,.\- ]/g, '');
   $('#box').on('keyup', () => $('#box').val(filterInput($('#box').val())));
 
 
   // ##################### OUTGOING Turns, Reset
 
-  $('#endTurn').prop('disabled', true);
-
   $('#endTurn').on('click', () => {
     primus.write(JSON.stringify({ endturn: true }));
+  });
+
+  // TODO
+  $('#sendExtra').on('click', () => {
+    const undo = $('#undo').prop('checked');
+    const incSel = $('#incsels').prop('checked');
+    primus.write(JSON.stringify({ extra: { undo, incSel } }));
   });
 
   $('#newPartner').on('click', () => {
@@ -72,28 +147,6 @@
   // ===========================================
   // =====================  INCOMING WS Handler
 
-  function clickHandler(event) {
-    const grp = getGroup(event);
-    const rect = grp.node.firstChild.instance;
-    const img = grp.node.lastChild.instance;
-    const selected = !grp.data('selected');
-    grp.data('selected', selected);
-    if (selected) {
-      grp.animate(ANIMSPD, easing).scale(1.5, 1.5).animate(ANIMSPD, easing).scale(2, 2);
-      img.opacity(0.4);
-      rect.fill('red');
-    } else {
-      grp.animate(ANIMSPD, easing).scale(1.5, 1.5).animate(ANIMSPD, easing).scale(2, 2);
-      img.opacity(1);
-      rect.fill('black');
-    }
-    primus.write(JSON.stringify({
-      act: 'click',
-      id: grp.id().substring(3),
-      selected,
-    }));
-  }
-
   primus.on('data', (data) => {
     // expecting JSON here
     if (typeof data === 'string') {
@@ -101,72 +154,100 @@
     }
 
     if (data.txt !== undefined) {
-      addMessage(`${data.role}: ${data.txt}`);
+      // player messages
+      const className = (data.ownMsg) ? 'ownMsg' : 'partnerMsg';
+      addMessage(`${data.role}: ${data.txt}`, className);
     } else if (data.msg !== undefined) {
+      // message from game
       addMessage(`MODERATOR: ${data.msg}`);
     } else if (data.updSelLeft !== undefined) {
+      // update selections
       $('#selects').text(data.updSelLeft);
     } else if (data.turn !== undefined) {
       const imageIds = data.board;
       if (boardImages.size === 0) {
-        // first time drawing 
+        // game state at begin of turn
+        show('endTurn');
+        show('extras');
+        show('write');
+        show('status');
+        // first time drawing
         for (let i = 0; i < imageIds.length; i += 1) {
           const imgId = imageIds[i];
           boardImages.add(imgId);
-          const row = Math.trunc(i / 7);
-          const col = i % 7;
-          const group = draw.group();
-          // rect as selection indicator
-          group.rect(13, 13);
-          group.id(`img${imgId}`);
-          group.data('selected', false);
-          group.move(col * 14 + 1, row * 14 + 1);
-          group.on('mouseover', (event) => {
-            // TODO also move images at edges a little to center
-            const grp = getGroup(event);
-            grp.front();
-            grp.animate(ANIMSPD, easing).scale(2, 2);
-          });
-          group.on('mouseout', (event) => {
-            const grp = getGroup(event);
-            grp.animate(ANIMSPD, easing).scale(1, 1);
-          });
-          const image = group.image(`g0/${imgId}.jpg`);
-          image.size(13, 13);
+          drawImage(i, imgId);
         }
       } else {
-        // remove deleted images
+        // hide or restore deleted images
         const turnImages = new Set(imageIds);
         boardImages.forEach((elem) => {
+          const grp = $(`#img${elem}`)[0].instance;
           if (!turnImages.has(elem)) {
-            const grp = $(`#img${elem}`)[0].instance;
-            new Promise(() => {
-              grp.animate(250, easing).scale(1.5, 1.5).animate(250, easing).scale(0, 0);
+            // hide
+            new Promise((resolve) => {
+              grp.animate(250, easing).scale(CLICKZOOM, CLICKZOOM)
+                .animate(250, easing).scale(0.1, 0.1);
+              // img
+              grp.node.lastChild.instance.opacity(1);
+              // rect
+              grp.node.firstChild.instance.fill('black');
+              resolve();
             }).then(() => {
-              $(`#img${elem}`).remove();
+              grp.hide();
+            });
+          } else if (!grp.visible()) {
+            // show again
+            new Promise((resolve) => {
+              grp.show();
+              resolve(grp);
+            }).then(() => {
+              grp.animate(250, easing).scale(CLICKZOOM, CLICKZOOM).animate(250, easing).scale(1, 1);
             });
           }
         });
       }
+      // turn specific UI changes
       if (data.turn) {
         for (let i = 0; i < imageIds.length; i += 1) {
           const group = $(`#img${imageIds[i]}`);
-          group.on('click', (event) => { clickHandler(event); });
+          // register twice
+          group.off('click', clickHandler);
+          group.on('click', clickHandler);
         }
-        $('#endTurn').prop('disabled', false);
-        addMessage('Nächster Zug');
+        show('endturn');
+        $('#active').text('Sie sind am Zug');
+        $('#playerturn').attr('class', 'ownTurn');
       } else {
         for (let i = 0; i < imageIds.length; i += 1) {
           const group = $(`#img${imageIds[i]}`);
-          group.off('click');
+          group.off('click', clickHandler);
         }
-        $('#endTurn').prop('disabled', true);
+        hide('endturn');
+        $('#active').text('Ihr Mitspieler ist am Zug');
+        $('#playerturn').attr('class', 'partnerTurn');
       }
+      // extra actions
+      hide('undo');
+      hide('incsels');
+      hide('extras');
+      $('#undo').prop('checked', false);
+      $('#incsels').prop('checked', false);
+      if (data.extra.undo) {
+        show('undo');
+        show('extras');
+      }
+      if (data.extra.incSelection) {
+        show('incsels');
+        show('extras');
+      }
+      // status info
       $('#turncount').text(data.turnCount);
-      $('#undos').text(data.undosLeft);
+      $('#undosAvailable').text(data.extra.undosLeft);
+      $('#incselsAvailable').text(data.extra.incSelectLeft);
       $('#selects').text(data.selectionsLeft);
       $('#unqA').text(data.uniqueLeftA);
       $('#unqB').text(data.uniqueLeftB);
+      $('#box').focus();
     }
   });
 }).call(this);

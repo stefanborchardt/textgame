@@ -7,7 +7,7 @@ const path = require('path');
 const os = require('os');
 
 module.exports = (directory,
-  gameSetSize, gameNumCommon, gameNumUnique, gameUndos, gameSelections) => {
+  paramSetSize, paramNumCommon, paramNumUnique, paramUndos, paramSelections, paramGameName) => {
   const maxAge = parseInt(config.get('cookie.maxage'), 10);
 
   const logger = winston.createLogger({
@@ -113,19 +113,19 @@ module.exports = (directory,
   const createInitialState = () => {
     // first digit of photo indicates category
     const allImages = new Set();
-    while (allImages.size < (gameNumCommon + 2 * gameNumUnique)) {
+    while (allImages.size < (paramNumCommon + 2 * paramNumUnique)) {
       // photo file names 100..599
-      allImages.add(Math.floor(Math.random() * gameSetSize + 100).toString());
+      allImages.add(Math.floor(Math.random() * paramSetSize + 100).toString());
     }
 
     // game state will be stored as sets,
     // arrays used for indexed access and shuffling
     const allImagesArray = Array.from(allImages);
     // hidden from players:
-    const common = allImagesArray.slice(0, gameNumCommon);
-    const uniqueA = allImagesArray.slice(gameNumCommon, gameNumCommon + gameNumUnique);
-    const uniqueB = allImagesArray.slice(gameNumCommon + gameNumUnique,
-      gameNumCommon + 2 * gameNumUnique);
+    const common = allImagesArray.slice(0, paramNumCommon);
+    const uniqueA = allImagesArray.slice(paramNumCommon, paramNumCommon + paramNumUnique);
+    const uniqueB = allImagesArray.slice(paramNumCommon + paramNumUnique,
+      paramNumCommon + 2 * paramNumUnique);
     // visible to respective player:
     const boardA = shuffle(common.concat(uniqueA));
     const boardB = shuffle(common.concat(uniqueB));
@@ -198,6 +198,7 @@ module.exports = (directory,
                   board: initialBoard.A,
                   unique: initialBoard.uniqueA,
                   messageCount: 0,
+                  extraSelected: '',
                 },
                 [sessId]: {
                   sessionId: sessId,
@@ -208,16 +209,18 @@ module.exports = (directory,
                   board: initialBoard.B,
                   unique: initialBoard.uniqueB,
                   messageCount: 0,
+                  extraSelected: '',
                 },
-                name: 'L5-test-other200',
+                name: paramGameName,
                 common: initialBoard.common,
                 turn: reqSid,
                 turnCount: 0,
-                undosLeft: gameUndos,
-                selectionsLeft: gameSelections,
-                extras: {
+                selectionsLeft: paramSelections,
+                extrasAvailable: {
                   undo: false,
+                  undosLeft: paramUndos,
                   incSelection: false,
+                  incSelectLeft: paramUndos,
                 },
                 currentSelection: new Set(),
                 previousSelection: new Set(),
@@ -307,12 +310,17 @@ module.exports = (directory,
   const broadcastMessage = (state, requester, partner, data) => {
     const dataCopy = Object.assign({}, data);
     dataCopy.role = requester.role;
+    dataCopy.ownMsg = true;
     requester.spark.write(dataCopy);
+    dataCopy.ownMsg = false;
     partner.spark.write(dataCopy);
+    delete dataCopy.ownMsg;
 
     const updState = gameStates.get(state.id);
     updState[requester.sessionId].messageCount += 1;
     gameStates.set(state.id, updState);
+
+    dataCopy.playerMsgNumber = updState[requester.sessionId].messageCount;
     writeLog(state.id, dataCopy);
   };
 
@@ -325,11 +333,18 @@ module.exports = (directory,
       currentSelection: Array.from(state.currentSelection),
       [requester.role]: {
         board: Array.from(requester.board),
+        uniqueLeft: Array.from(state[state.playerA].unique)
+          .filter(val => state[state.playerA].board.has(val)),
       },
       [partner.role]: {
         board: Array.from(partner.board),
+        uniqueLeftB: Array.from(state[state.playerB].unique)
+          .filter(val => state[state.playerB].board.has(val)),
       },
-      undosLeft: state.undosLeft,
+      extras: {
+        undosLeft: state.extrasAvailable.undosLeft,
+        incSelectLeft: state.extrasAvailable.incSelectLeft,
+      },
       name: state.name,
       common: Array.from(state.common),
       uniqueA: Array.from(state[state.playerA].unique),
@@ -340,15 +355,14 @@ module.exports = (directory,
   // =============================== selection
 
   /** game state for selection logging */
-  const getShortGameData = (state, requester, partner, ownTurn) => (
+  const getShortGameData = (state, requester, partner) => (
     {
       turnCount: state.turnCount,
-      turn: (ownTurn) ? requester.role : partner.role,
+      turn: (state.turn === requester.sessionId) ? requester.role : partner.role,
       selectionsLeft: state.selectionsLeft,
       currentSelection: Array.from(state.currentSelection),
-      [requester.role]: {
-        board: Array.from(requester.board),
-      },
+      extrasAvailable: state.extrasAvailable,
+      extraSelected: state[requester.sessionId].extraSelected,
     }
   );
 
@@ -367,7 +381,7 @@ module.exports = (directory,
     stateToUpdate.currentSelection = curSel;
     gameStates.set(state.id, stateToUpdate);
     requester.spark.write({ updSelLeft: stateToUpdate.selectionsLeft });
-    writeLog(state.id, getShortGameData(stateToUpdate, requester, partner, ownTurn));
+    writeLog(state.id, getShortGameData(stateToUpdate, requester, partner));
   };
 
   // ====================================================== turns
@@ -388,26 +402,32 @@ module.exports = (directory,
   const getTurnData = (player, state, turn) => (
     {
       turn,
-      name: state.name,
-      board: Array.from(player.board),
-      undosLeft: state.undosLeft,
-      turnCount: state.turnCount,
       role: player.role,
+      board: Array.from(player.board),
+      turnCount: state.turnCount,
       selectionsLeft: state.selectionsLeft,
-      extra: state.extrass,
+      extra: {
+        undo: state.extrasAvailable.undo,
+        undosLeft: state.extrasAvailable.undosLeft,
+        incSelection: state.extrasAvailable.incSelection,
+        incSelectLeft: state.extrasAvailable.incSelectLeft,
+      },
       uniqueLeftA: getUniqueLeft(state, state.playerA),
       uniqueLeftB: getUniqueLeft(state, state.playerB),
     }
   );
 
   /** sends the current game state to the players */
-  const broadcastTurn = (state, requester, partner, isReqTurn) => {
+  const broadcastTurn = (state, requester, partner) => {
+    const isReqTurn = state.turn === requester.sessionId;
     requester.spark.write(getTurnData(requester, state, isReqTurn));
     partner.spark.write(getTurnData(partner, state, !isReqTurn));
     writeLog(state.id, getGameData(state, requester, partner, isReqTurn));
   };
 
-  const connectionHandler = (spark, endTurn, sessionStore) => {
+  // ====================================================== connection handler
+
+  const connectionHandler = (spark, sessionStore) => {
     // we use the browser session to identify a user
     // expiration of session can be configured in the properties
     // a user session can span multiple sparks (websocket connections)
@@ -443,11 +463,153 @@ module.exports = (directory,
       writeMsg(requester.spark, 'Mitspieler gefunden.');
       writeMsg(partner.spark, 'Mitspieler gefunden.');
       // initialize client boards
-      broadcastTurn(gameState, requester, partner, gameState.turn === requesterSid);
+      broadcastTurn(gameState, requester, partner);
     } else {
       // no partner found yet
       writeMsg(spark, 'Warten auf Mitspieler...');
     }
+
+    // ======================================================
+    // high potential for game specific implementation: hand in as
+    // module exports parameters
+    // ======================================================
+
+    // ends requesters turn in session store
+    // assumes that the partner connection has been checked
+    const endTurn = (state, partner, requester, ownTurn) => {
+      if (!ownTurn) {
+        logger.warn(`ending turn by ${requester.sessionId} in game ${state.id} not allowed`);
+      }
+      if (state.selectionsLeft < 0) {
+        writeMsg(requester.spark, 'Bitte weniger auswählen!');
+        return;
+      }
+      if (state.currentSelection.size === 0) {
+        writeMsg(requester.spark, 'Mindestens eins auswählen!');
+        return;
+      }
+
+      const unqLeftPrevious = getUniqueLeft(state, state.playerA)
+        + getUniqueLeft(state, state.playerB);
+
+      // remove selection from player boards
+      const stateToUpdate = gameStates.get(state.id);
+      state.currentSelection.forEach((val) => {
+        stateToUpdate[requester.sessionId].board.delete(val);
+        stateToUpdate[partner.sessionId].board.delete(val);
+      });
+
+      // calculate the number of shared images left
+      const commonLeftNow = getCommonLeft(stateToUpdate);
+      // calculate unique images lost in this turn
+      const playerAUqLeftNow = getUniqueLeft(stateToUpdate, stateToUpdate.playerA);
+      const playerBUqLeftNow = getUniqueLeft(stateToUpdate, stateToUpdate.playerB);
+      const unqLeftNow = playerAUqLeftNow + playerBUqLeftNow;
+
+      if (commonLeftNow === 0 || unqLeftNow === 0) {
+        // game ends
+        // broadcast end
+        // TODO
+        writeMsg(requester.spark, 'ENDE');
+        writeMsg(partner.spark, 'ENDE');
+        gameStates.set(state.id, stateToUpdate);
+        writeLog(state.id, getGameData(stateToUpdate, requester, partner));
+        broadcastTurn(stateToUpdate, requester, partner);
+        return;
+      }
+
+      const upExtrasAvail = stateToUpdate.extrasAvailable;
+      if (unqLeftPrevious - unqLeftNow > 0) {
+        // make extra actions available
+        if (upExtrasAvail.incSelectLeft > 0 && commonLeftNow > 0) {
+          upExtrasAvail.incSelection = true;
+        }
+        if (upExtrasAvail.undosLeft > 0) {
+          upExtrasAvail.undo = true;
+        }
+        writeMsg(requester.spark, 'Zusatzaktionen verfügbar. Zum aktivieren beide das gleiche auswählen.');
+      } else {
+        upExtrasAvail.incSelection = false;
+        upExtrasAvail.undo = false;
+      }
+      stateToUpdate.extrasAvailable = upExtrasAvail;
+
+      // calculate number of selections for next turn
+      stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
+        ? commonLeftNow : paramSelections;
+
+      // clear current turn data
+      stateToUpdate.previousSelection = new Set(state.currentSelection);
+      stateToUpdate.currentSelection.clear();
+      stateToUpdate.turnCount += 1;
+      // reset player choices in case extra selection was not finished
+      stateToUpdate.playerA.extraSelected = '';
+      stateToUpdate.playerB.extraSelected = '';
+      // switch player
+      stateToUpdate.turn = partner.sessionId;
+
+      gameStates.set(state.id, stateToUpdate);
+      writeLog(state.id, getGameData(stateToUpdate, requester, partner));
+      broadcastTurn(stateToUpdate, requester, partner);
+    };
+
+    const applyExtra = (state, partner, requester, extra) => {
+      if ((!extra.undo && !extra.incSel) || (extra.undo && extra.incSel)) {
+        writeMsg(requester.spark, 'Bitte eins auswählen.');
+        return;
+      }
+
+      // save selection
+      const stateToUpdate = gameStates.get(state.id);
+      const reqSelected = stateToUpdate[requester.sessionId];
+      if (extra.undo) {
+        reqSelected.extraSelected = 'undo';
+        writeMsg(partner.spark, 'Mitspieler wählt "Rückgängig".');
+      } else {
+        reqSelected.extraSelected = 'incSelection';
+        writeMsg(partner.spark, 'Mitspieler wählt "extra Auswahl".');
+      }
+      gameStates.set(state.id, stateToUpdate);
+      writeLog(state.id, getShortGameData(stateToUpdate, requester, partner));
+
+      // check for agreement
+      if (stateToUpdate[partner.sessionId].extraSelected !== '') {
+        if (stateToUpdate[partner.sessionId].extraSelected === reqSelected.extraSelected) {
+          if (extra.incSel) {
+            stateToUpdate.selectionsLeft += 1;
+            stateToUpdate.extrasAvailable.incSelectLeft -= 1;
+          } else {
+            // undo
+            stateToUpdate.previousSelection.forEach((val) => {
+              if (state.common.has(val)) {
+                stateToUpdate[state.playerA].board.add(val);
+                stateToUpdate[state.playerB].board.add(val);
+              }
+              if (state[state.playerA].unique.has(val)) {
+                stateToUpdate[state.playerA].board.add(val);
+              }
+              if (state[state.playerB].unique.has(val)) {
+                stateToUpdate[state.playerB].board.add(val);
+              }
+            });
+            stateToUpdate.extrasAvailable.undosLeft -= 1;
+          }
+
+          // reset available extra actions
+          stateToUpdate[state.playerA].extraSelected = '';
+          stateToUpdate[state.playerB].extraSelected = '';
+          stateToUpdate.extrasAvailable.undo = false;
+          stateToUpdate.extrasAvailable.incSelection = false;
+
+          gameStates.set(state.id, stateToUpdate);
+          writeLog(state.id, getGameData(stateToUpdate, requester, partner));
+          broadcastTurn(stateToUpdate, requester, partner);
+        } else {
+          writeMsg(requester.spark, 'Keine Übereinstimmung bei Zusatzaktion.');
+          writeMsg(partner.spark, 'Keine Übereinstimmung bei Zusatzaktion.');
+        }
+      }
+    };
 
     // ====================================================== handler incoming requests
 
@@ -488,6 +650,8 @@ module.exports = (directory,
           }
         } else if (data.endturn !== undefined) {
           endTurn(state, partner, requester, ownturn);
+        } else if (data.extra !== undefined) {
+          applyExtra(state, partner, requester, data.extra);
         } else if (data.reset !== undefined) {
           logger.info(`resetting pair ${state.id}`);
           writeLog(state.id, { resetBy: requester.role });
@@ -503,6 +667,7 @@ module.exports = (directory,
     });
   };
 
+  // ======================================================
   return {
     connectionHandler,
     logger,
@@ -512,6 +677,7 @@ module.exports = (directory,
     getUniqueLeft,
     getCommonLeft,
     getGameData,
+    getShortGameData,
     broadcastTurn,
   };
 };

@@ -5,7 +5,7 @@ body {
 #content {
   display: flex;
   flex-direction: row;
-  width: 80vw;
+  width: 90vw;
   align-items: center;
 }
 
@@ -16,9 +16,25 @@ body {
   height: 80vh;
 }
 
-#sizing {
+#right {
   width: 40vw;
   min-width: 30vw;
+}
+
+#playerturn, #active {
+  width: 100%;
+  font-size: 120%
+}
+
+#playerturn {
+  padding-left: 1vw;
+  margin-bottom: 2vh;
+}
+.ownTurn {
+  background-color: #88cc88;
+}
+.partnerTurn {
+  background-color: #ffaaaa;
 }
 
 #status * span {
@@ -38,8 +54,16 @@ ul {
   list-style: none;
   padding-inline-start: 1vw;
 }
+
 li {
   white-space: normal;
+}
+.ownMsg {
+  color: #1a056b;
+}
+.partnerMsg {
+  color: #980000;
+  margin-left: 1vw;
 }
 
 .inputsection {
