@@ -61,7 +61,7 @@ li {
 .ownMsg {
   color: #1a056b;
 }
-.partnerMsg {
+.partnerMsg, .partnerTyping {
   color: #980000;
   margin-left: 1vw;
 }

@@ -95,9 +95,9 @@ const easyRouter = require('./routes/easy');
 const mediumRouter = require('./routes/medium');
 const loginRouter = require('./routes/login');
 
-app.use('/', mediumRouter);
+app.use('/medium', mediumRouter);
 app.use('/easy', easyRouter);
-app.use('/large', indexRouter);
+app.use('/', indexRouter);
 app.use('/login', loginRouter);
 
 // when the index router detects an unauthenticated user it redirects
@@ -109,7 +109,7 @@ app.post('/login', (req, res) => {
   }
   if (pwd === req.body.password) {
     req.session.pairedWith = 'noone';
-    res.redirect('/easy');
+    res.redirect('/medium');
   } else {
     res.redirect('/login');
   }
