@@ -1,15 +1,13 @@
 // configure base game
-const options = {
+const g = require('./tgbase')({
   directory: 'tg',
   paramSetSize: 500,
   paramNumCommon: 39,
   paramNumUnique: 10,
-  paramUndos: 3,
+  paramUndos: 5,
   paramSelections: 6,
   paramGameName: 'L5-test-5x100',
-};
-
-const g = require('./tgbase')(options);
+});
 
 // ======================================================
 // hand sessionStore and game custom implementations of functions to base game

@@ -12,6 +12,10 @@ block content
 
 			div#drawing
 
+			div#footer Bilddaten: Chaladze, G., Kalatozishvili, L. (2017).  
+				a(href='http://chaladze.com/l5/') Linnaeus 5 Dataset 
+				| for Machine Learning.
+
 		div#right
 
 			div#playerturn
@@ -33,30 +37,33 @@ block content
 				div 
 					span#undosAvailable
 					|  Rückgängig verfügbar 
-				div 
-					span#incselsAvailable
-					|  extra Auswahl verfügbar 
+				//- div 
+				//- 	span#incselsAvailable
+				//- 	|  extra Entfernen verfügbar 
 			
 			div#chat
 				ul#messages
 			
 			div(class='inputsection')#write
 				input(type='text')#box
-				button#sendText Send
+				button#sendText Senden
 
 			div(class='inputsection')#extras
-				input(type='radio', name='extras', value='undo')#undo
-				label(for='undo') rückgängig
-				input(type='radio', name='extras', value='incsels')#incsels
-				label(for='incsels') Auswahl erhöhen
-				button#sendExtra Send
+				button#sendExtra Wählen: 
+				input(type='checkbox', name='extras', value='undo')#undo
+				label(for='undo') Rückgängig
+				//- input(type='radio', name='extras', value='incsels')#incsels
+				//- label(for='incsels') Entfernen erhöhen
 
 			div(class='wideButton')
 				button#endTurn Zug beenden
 
-			div(class='wideButton')#newgame
-				button#newPartner Neuer Partner
+			div(class='gameChoice') 
+				a#newPartner(href='javascript:') Neues Spiel
 
-			div#footer Bilddaten: Chaladze, G., Kalatozishvili, L. (2017).  
-				a(href='http://chaladze.com/l5/') Linnaeus 5 Dataset 
-				| for Machine Learning.
+			div(class='gameChoice') Anderes Spiel: 
+				a(href='/easy') Leicht 
+				a(href='/medium') Mittel 
+				a(href='/') Schwer 
+
+			

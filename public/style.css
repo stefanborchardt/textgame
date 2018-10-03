@@ -6,7 +6,7 @@ body {
   display: flex;
   flex-direction: row;
   width: 90vw;
-  align-items: center;
+  /* align-items: center; */
 }
 
 #drawing {
@@ -19,6 +19,7 @@ body {
 #right {
   width: 40vw;
   min-width: 30vw;
+  margin-top: 5vh;
 }
 
 #playerturn, #active {
@@ -39,6 +40,10 @@ body {
 
 #status * span {
   font-weight: bold;
+}
+
+#selects {
+  font-size: 150%;
 }
 
 #chat {
@@ -101,6 +106,3 @@ li {
   width: 100%;
 }
 
-#newgame {
-  margin-top: 4vh;
-}

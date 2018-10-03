@@ -4,7 +4,7 @@ const options = {
   paramSetSize: 200,
   paramNumCommon: 20,
   paramNumUnique: 5,
-  paramUndos: 2,
+  paramUndos: 3,
   paramSelections: 4,
   paramGameName: 'L5-train-flowers200',
 };

@@ -8,12 +8,19 @@ const os = require('os');
 
 module.exports = (options) => {
   const {
-    directory, paramSetSize, paramNumCommon, paramNumUnique,
-    paramUndos, paramSelections, paramGameName,
+    directory,
+    paramSetSize, // number of images available in the file system
+    // must be named 100.jpg .. {setsize+99}.jpg, not tested for >900
+    paramNumCommon, // number of shared images
+    paramNumUnique, // unique images for each player
+    paramUndos, // number of undos
+    paramSelections, // number of selections per turn
+    paramGameName, // how this game is identified in game logs
   } = options;
 
   const maxAge = parseInt(config.get('cookie.maxage'), 10);
 
+  // general application logger, not the game logs
   const logger = winston.createLogger({
     format: winston.format.combine(
       winston.format.timestamp(),
@@ -28,7 +35,9 @@ module.exports = (options) => {
   });
 
   /** stores the state of the game by log file name.
-  * infinite size, pruned regularly */
+   * The player browser session holds the reference to a game state in this list.
+   * Entries of the list hold information as in findPartnerCheckConnection().
+   * Cache has infinite size, pruned regularly */
   const gameStates = cache({ maxAge });
   setInterval(() => { gameStates.prune(); }, 2 * maxAge);
 
@@ -144,7 +153,7 @@ module.exports = (options) => {
   };
 
   /** finds another user without partner or the former partner and
- * initialises the game state */
+  * initialises the game state */
   const findPartnerCheckConnection = (spk, reqSid, jRequester, sStore) => {
     let gameState = null;
     const gameStateId = jRequester.pairedWith;
@@ -221,10 +230,10 @@ module.exports = (options) => {
                 turnCount: 0,
                 selectionsLeft: paramSelections,
                 extrasAvailable: {
-                  undo: false,
+                  undo: false, // nothing to undo in first turn
                   undosLeft: paramUndos,
-                  incSelection: false,
-                  incSelectLeft: paramUndos,
+                  // incSelection: false,
+                  // incSelectLeft: paramUndos,
                 },
                 currentSelection: new Set(),
                 previousSelection: new Set(),
@@ -347,7 +356,7 @@ module.exports = (options) => {
       },
       extras: {
         undosLeft: state.extrasAvailable.undosLeft,
-        incSelectLeft: state.extrasAvailable.incSelectLeft,
+        // incSelectLeft: state.extrasAvailable.incSelectLeft,
       },
       name: state.name,
       common: Array.from(state.common),
@@ -413,8 +422,8 @@ module.exports = (options) => {
       extra: {
         undo: state.extrasAvailable.undo,
         undosLeft: state.extrasAvailable.undosLeft,
-        incSelection: state.extrasAvailable.incSelection,
-        incSelectLeft: state.extrasAvailable.incSelectLeft,
+        // incSelection: state.extrasAvailable.incSelection,
+        // incSelectLeft: state.extrasAvailable.incSelectLeft,
       },
       uniqueLeftA: getUniqueLeft(state, state.playerA),
       uniqueLeftB: getUniqueLeft(state, state.playerB),
@@ -481,22 +490,26 @@ module.exports = (options) => {
     const upExtrasAvail = stateToUpdate.extrasAvailable;
     if (unqLeftPrevious - unqLeftNow > 0) {
       // make extra actions available
-      if (upExtrasAvail.incSelectLeft > 0 && commonLeftNow > 0) {
-        upExtrasAvail.incSelection = true;
-      }
-      if (upExtrasAvail.undosLeft > 0) {
-        upExtrasAvail.undo = true;
-      }
-      writeMsg(requester.spark, 'Zusatzaktionen verfügbar. Zum aktivieren beide das gleiche auswählen.');
+      // if (upExtrasAvail.incSelectLeft > 0 && commonLeftNow > 0) {
+      // upExtrasAvail.incSelection = true;
+      // }
+      const increasedSelection = Math.ceil(1.3 * paramSelections);
+      stateToUpdate.selectionsLeft = commonLeftNow < increasedSelection
+        ? commonLeftNow : increasedSelection;
+      writeMsg(requester.spark, 'Falsches Bild gelöscht - in diesem Zug mehr Entfernen verfügbar.');
+      writeMsg(partner.spark, 'Falsches Bild gelöscht - in diesem Zug mehr Entfernen verfügbar.');
     } else {
-      upExtrasAvail.incSelection = false;
-      upExtrasAvail.undo = false;
+      stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
+        ? commonLeftNow : paramSelections;
+      //   upExtrasAvail.incSelection = false;
+      //   upExtrasAvail.undo = false;
+    }
+    if (upExtrasAvail.undosLeft > 0) {
+      upExtrasAvail.undo = true;
     }
     stateToUpdate.extrasAvailable = upExtrasAvail;
 
     // calculate number of selections for next turn
-    stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
-      ? commonLeftNow : paramSelections;
 
     // clear current turn data
     stateToUpdate.previousSelection = new Set(state.currentSelection);
@@ -516,10 +529,10 @@ module.exports = (options) => {
 
   /** handle extra choice of players */
   const applyExtra = (state, partner, requester, extra) => {
-    if ((!extra.undo && !extra.incSel) || (extra.undo && extra.incSel)) {
-      writeMsg(requester.spark, 'Bitte eins auswählen.');
-      return;
-    }
+    // if ((!extra.undo && !extra.incSel) || (extra.undo && extra.incSel)) {
+    //   writeMsg(requester.spark, 'Bitte eins auswählen.');
+    //   return;
+    // }
 
     // save selection
     const stateToUpdate = gameStates.get(state.id);
@@ -528,40 +541,45 @@ module.exports = (options) => {
       reqSelected.extraSelected = 'undo';
       writeMsg(partner.spark, 'Mitspieler wählt "Rückgängig".');
     } else {
-      reqSelected.extraSelected = 'incSelection';
-      writeMsg(partner.spark, 'Mitspieler wählt "extra Auswahl".');
+      reqSelected.extraSelected = '';
+      writeMsg(partner.spark, '"Rückgängig" von Mitspieler abgewählt.');
     }
+    // else {
+    //   reqSelected.extraSelected = 'incSelection';
+    //   writeMsg(partner.spark, 'Mitspieler wählt "extra Auswahl".');
+    // }
     gameStates.set(state.id, stateToUpdate);
     writeLog(state.id, getShortGameData(stateToUpdate, requester, partner));
 
     // check for agreement
     if (stateToUpdate[partner.sessionId].extraSelected !== '') {
       if (stateToUpdate[partner.sessionId].extraSelected === reqSelected.extraSelected) {
-        if (extra.incSel) {
-          stateToUpdate.selectionsLeft += 1;
-          stateToUpdate.extrasAvailable.incSelectLeft -= 1;
-        } else {
-          // undo
-          stateToUpdate.previousSelection.forEach((val) => {
-            if (state.common.has(val)) {
-              stateToUpdate[state.playerA].board.add(val);
-              stateToUpdate[state.playerB].board.add(val);
-            }
-            if (state[state.playerA].unique.has(val)) {
-              stateToUpdate[state.playerA].board.add(val);
-            }
-            if (state[state.playerB].unique.has(val)) {
-              stateToUpdate[state.playerB].board.add(val);
-            }
-          });
-          stateToUpdate.extrasAvailable.undosLeft -= 1;
-        }
+        // if (extra.incSel) {
+        //   stateToUpdate.selectionsLeft += 1;
+        //   stateToUpdate.extrasAvailable.incSelectLeft -= 1;
+        // } else {
+
+        // undo
+        stateToUpdate.previousSelection.forEach((val) => {
+          if (state.common.has(val)) {
+            stateToUpdate[state.playerA].board.add(val);
+            stateToUpdate[state.playerB].board.add(val);
+          }
+          if (state[state.playerA].unique.has(val)) {
+            stateToUpdate[state.playerA].board.add(val);
+          }
+          if (state[state.playerB].unique.has(val)) {
+            stateToUpdate[state.playerB].board.add(val);
+          }
+        });
+        stateToUpdate.extrasAvailable.undosLeft -= 1;
+        // }
 
         // reset available extra actions
         stateToUpdate[state.playerA].extraSelected = '';
         stateToUpdate[state.playerB].extraSelected = '';
         stateToUpdate.extrasAvailable.undo = false;
-        stateToUpdate.extrasAvailable.incSelection = false;
+        // stateToUpdate.extrasAvailable.incSelection = false;
 
         gameStates.set(state.id, stateToUpdate);
         writeLog(state.id, getGameData(stateToUpdate, requester, partner));
@@ -586,21 +604,19 @@ module.exports = (options) => {
       return;
     }
     const jRequesterSession = JSON.parse(syncSession(requesterSid, sessionStore));
-
-    writeMsg(spark, 'Willkommen!');
     logger.info('new connection');
 
     if (jRequesterSession.pairedWith === 'noone') {
       // new connection or server restart
       // going to find new partner
-      writeMsg(spark, 'Suche neuen Mitspieler...');
+      writeMsg(spark, 'Willkommen! Suche neuen Mitspieler...');
     } else {
       // unexpired session connecting again
       // going to check if former partner is still there
-      writeMsg(spark, 'Versuche letzen Mitspieler zu finden, ggf. "Neuer Partner" klicken');
+      writeMsg(spark, 'Willkommen zurück! Versuche letzen Mitspieler zu finden, ggf. "Neuer Partner" klicken');
     }
 
-    // try to find a partner
+    // try to find a partner and set up game
     const gameState = findPartnerCheckConnection(spark, requesterSid,
       jRequesterSession, sessionStore);
 
@@ -624,6 +640,7 @@ module.exports = (options) => {
 
       const reqSid = extractSid(spark.headers.cookie);
 
+      // check if partner still available
       const {
         state, partner, requester, ownturn,
       } = checkPartnerGetState(spark, reqSid, sessionStore);
@@ -635,6 +652,7 @@ module.exports = (options) => {
       } else if (state === 'partnerdisconnected') {
         const data = JSON.parse(packet);
         if (data.reset !== undefined) {
+          // the second player wants to leave the game
           logger.info(`resetting partner ${reqSid}`);
           const jSession = JSON.parse(syncSession(reqSid, sessionStore));
           gameStates.del(jSession.pairedWith);
@@ -647,7 +665,7 @@ module.exports = (options) => {
         // handled in checkPartnerGetState(), mentioned here to cover all possible return values
       } else {
         const data = JSON.parse(packet);
-
+        // here we evaluate the type of message
         if (data.txt !== undefined) {
           broadcastMessage(state, requester, partner, data);
         } else if (data.act !== undefined) {
@@ -661,6 +679,7 @@ module.exports = (options) => {
         } else if (data.endturn !== undefined) {
           endTurn(state, partner, requester, ownturn);
         } else if (data.reset !== undefined) {
+          // the first player wants to leave the game
           logger.info(`resetting pair ${state.id}`);
           writeLog(state.id, { resetBy: requester.role });
           gameStates.del(state.id);
