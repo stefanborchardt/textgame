@@ -1,7 +1,15 @@
 // configure base game
-const g = require('./tgbase')(
-  'tm', 200, 20, 5, 2, 4, 'L5-train-1x200',
-);
+const options = {
+  directory: 'tm',
+  paramSetSize: 200,
+  paramNumCommon: 20,
+  paramNumUnique: 5,
+  paramUndos: 2,
+  paramSelections: 4,
+  paramGameName: 'L5-train-flowers200',
+};
+
+const g = require('./tgbase')(options);
 
 // ======================================================
 // hand sessionStore and game custom implementations of functions to base game

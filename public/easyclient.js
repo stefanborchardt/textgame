@@ -115,12 +115,24 @@
 
   $('#sendText').on('click', () => { sendText(); });
 
+  // using a variable in global scope for locking
+  window.throttled = false;
+
+  function throttleTyping() {
+    if (!window.throttled) {
+      window.throttled = true;
+      primus.write(JSON.stringify({ act: 'typing' }));
+      setTimeout(() => {
+        window.throttled = false;
+      }, 2000);
+    }
+  }
   const keyHandler = (evt) => {
     if (evt.which === 13) {
       sendText();
     } else {
       // TODO throttle seems not to be working
-      _.throttle(primus.write(JSON.stringify({ act: 'typing' })), 4000);
+      throttleTyping();
     }
   };
 
@@ -275,7 +287,7 @@
           if ($('.partnerTyping').length > 0) {
             $('.partnerTyping').remove();
           }
-        }, 5000);
+        }, 3000);
       }
     }
   });

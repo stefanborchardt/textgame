@@ -6,8 +6,12 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-module.exports = (directory,
-  paramSetSize, paramNumCommon, paramNumUnique, paramUndos, paramSelections, paramGameName) => {
+module.exports = (options) => {
+  const {
+    directory, paramSetSize, paramNumCommon, paramNumUnique,
+    paramUndos, paramSelections, paramGameName,
+  } = options;
+
   const maxAge = parseInt(config.get('cookie.maxage'), 10);
 
   const logger = winston.createLogger({
