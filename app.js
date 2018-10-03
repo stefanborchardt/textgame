@@ -41,7 +41,7 @@ const sessionStore = new MemoryStore({
   checkPeriod: 2 * maxAge, // prune expired entries every 2h
 });
 app.use(session({
-  resave: false,
+  resave: true, // websocket does not implement touch
   saveUninitialized: false,
   secret: config.get('session.secret'),
   cookie: {

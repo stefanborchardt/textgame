@@ -78,6 +78,34 @@
     return group;
   }
 
+  function updateImages(imageIds) {
+    const turnImages = new Set(imageIds);
+    boardImages.forEach((elem) => {
+      const grp = SVG.get(`img${elem}`);
+      if (!turnImages.has(elem)) {
+        // hide
+        new Promise((resolve) => {
+          grp.animate(ANIMSPD, easing).scale(CLICKZOOM, CLICKZOOM)
+            .animate(ANIMSPD, easing).scale(0.1, 0.1);
+          grp.select('image').opacity(1);
+          grp.select('rect').fill('black');
+          resolve();
+        }).then(() => {
+          grp.hide();
+        });
+      } else if (!grp.visible()) {
+        // show again
+        new Promise((resolve) => {
+          grp.show();
+          resolve(grp);
+        }).then(() => {
+          grp.animate(ANIMSPD, easing).scale(CLICKZOOM, CLICKZOOM)
+            .animate(ANIMSPD, easing).scale(1, 1);
+        });
+      }
+    });
+  }
+
   function clickHandler(event) {
     const grp = getGroup(event);
     const rect = grp.select('rect');
@@ -115,12 +143,24 @@
 
   $('#sendText').on('click', () => { sendText(); });
 
+  // using a variable in global scope for locking
+  window.throttled = false;
+
+  function throttleTyping() {
+    if (!window.throttled) {
+      window.throttled = true;
+      primus.write(JSON.stringify({ act: 'typing' }));
+      setTimeout(() => {
+        window.throttled = false;
+      }, 2000);
+    }
+  }
   const keyHandler = (evt) => {
     if (evt.which === 13) {
       sendText();
     } else {
       // TODO throttle seems not to be working
-      _.throttle(primus.write(JSON.stringify({ act: 'typing' })), 4000);
+      throttleTyping();
     }
   };
 
@@ -170,39 +210,13 @@
       }
     } else {
       // hide or restore deleted images
-      const turnImages = new Set(imageIds);
-      boardImages.forEach((elem) => {
-        const grp = SVG.get(`img${elem}`);
-        if (!turnImages.has(elem)) {
-          // hide
-          new Promise((resolve) => {
-            grp.animate(250, easing).scale(CLICKZOOM, CLICKZOOM)
-              .animate(250, easing).scale(0.1, 0.1);
-            // img
-            grp.select('image').opacity(1);
-            // rect
-            grp.select('rect').fill('black');
-            resolve();
-          }).then(() => {
-            grp.hide();
-          });
-        }
-        else if (!grp.visible()) {
-          // show again
-          new Promise((resolve) => {
-            grp.show();
-            resolve(grp);
-          }).then(() => {
-            grp.animate(250, easing).scale(CLICKZOOM, CLICKZOOM).animate(250, easing).scale(1, 1);
-          });
-        }
-      });
+      updateImages(imageIds);
     }
     // turn specific UI changes
     if (data.turn) {
       for (let i = 0; i < imageIds.length; i += 1) {
         const group = SVG.get(`img${imageIds[i]}`);
-        // register twice
+        // don't register twice
         group.off('click', clickHandler);
         group.on('click', clickHandler);
       }
@@ -265,6 +279,17 @@
     } else if (data.updSelLeft !== undefined) {
       // update selections
       $('#selects').text(data.updSelLeft);
+    } else if (data.ended !== undefined) {
+      // TODO
+      updateImages(data.board);
+      $('#status').hide();
+      $('#extras').hide();
+      $('#endTurn').hide();
+      $('li').remove();
+      addMessage('MODERATOR: Spiel beendet. Das sind die unterschiedlichen Bilder.');
+      addMessage('MODERATOR: Unten klicken für neues oder anderes Spiel. ');
+      $('#active').text(`Spielende. ${data.score} Punkte.`);
+      $('#playerturn').attr('class', 'ownTurn');
     } else if (data.turn !== undefined) {
       handleTurnData(data);
     } else if (data.typing !== undefined) {
@@ -275,7 +300,7 @@
           if ($('.partnerTyping').length > 0) {
             $('.partnerTyping').remove();
           }
-        }, 5000);
+        }, 3000);
       }
     }
   });

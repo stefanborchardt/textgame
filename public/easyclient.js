@@ -1,5 +1,5 @@
 (() => {
-  const ANIMSPD = 100;
+  const ANIMSPD = 150;
   const GRIDDIM = 3;
   const IMGSIZE = 25;
   const MARGIN = 6;
@@ -76,6 +76,34 @@
     const image = group.image(`${IMGDIR}/${imgId}.jpg`);
     image.size(IMGSIZE, IMGSIZE);
     return group;
+  }
+
+  function updateImages(imageIds) {
+    const turnImages = new Set(imageIds);
+    boardImages.forEach((elem) => {
+      const grp = SVG.get(`img${elem}`);
+      if (!turnImages.has(elem)) {
+        // hide
+        new Promise((resolve) => {
+          grp.animate(ANIMSPD, easing).scale(CLICKZOOM, CLICKZOOM)
+            .animate(ANIMSPD, easing).scale(0.1, 0.1);
+          grp.select('image').opacity(1);
+          grp.select('rect').fill('black');
+          resolve();
+        }).then(() => {
+          grp.hide();
+        });
+      } else if (!grp.visible()) {
+        // show again
+        new Promise((resolve) => {
+          grp.show();
+          resolve(grp);
+        }).then(() => {
+          grp.animate(ANIMSPD, easing).scale(CLICKZOOM, CLICKZOOM)
+            .animate(ANIMSPD, easing).scale(1, 1);
+        });
+      }
+    });
   }
 
   function clickHandler(event) {
@@ -182,39 +210,13 @@
       }
     } else {
       // hide or restore deleted images
-      const turnImages = new Set(imageIds);
-      boardImages.forEach((elem) => {
-        const grp = SVG.get(`img${elem}`);
-        if (!turnImages.has(elem)) {
-          // hide
-          new Promise((resolve) => {
-            grp.animate(250, easing).scale(CLICKZOOM, CLICKZOOM)
-              .animate(250, easing).scale(0.1, 0.1);
-            // img
-            grp.select('image').opacity(1);
-            // rect
-            grp.select('rect').fill('black');
-            resolve();
-          }).then(() => {
-            grp.hide();
-          });
-        }
-        else if (!grp.visible()) {
-          // show again
-          new Promise((resolve) => {
-            grp.show();
-            resolve(grp);
-          }).then(() => {
-            grp.animate(250, easing).scale(CLICKZOOM, CLICKZOOM).animate(250, easing).scale(1, 1);
-          });
-        }
-      });
+      updateImages(imageIds);
     }
     // turn specific UI changes
     if (data.turn) {
       for (let i = 0; i < imageIds.length; i += 1) {
         const group = SVG.get(`img${imageIds[i]}`);
-        // register twice
+        // don't register twice
         group.off('click', clickHandler);
         group.on('click', clickHandler);
       }
@@ -277,6 +279,17 @@
     } else if (data.updSelLeft !== undefined) {
       // update selections
       $('#selects').text(data.updSelLeft);
+    } else if (data.ended !== undefined) {
+      // TODO
+      updateImages(data.board);
+      $('#status').hide();
+      $('#extras').hide();
+      $('#endTurn').hide();
+      $('li').remove();
+      addMessage('MODERATOR: Spiel beendet. Das sind die unterschiedlichen Bilder.');
+      addMessage('MODERATOR: Unten klicken für neues oder anderes Spiel. ');
+      $('#active').text(`Spielende. ${data.score} Punkte.`);
+      $('#playerturn').attr('class', 'ownTurn');
     } else if (data.turn !== undefined) {
       handleTurnData(data);
     } else if (data.typing !== undefined) {

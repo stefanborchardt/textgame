@@ -237,6 +237,7 @@ module.exports = (options) => {
                 },
                 currentSelection: new Set(),
                 previousSelection: new Set(),
+                isEnded: false,
                 playerA: reqSid,
                 playerB: sessId,
               };
@@ -477,13 +478,33 @@ module.exports = (options) => {
 
     if (commonLeftNow === 0 || unqLeftNow === 0) {
       // game ends
-      // broadcast end
-      // TODO
-      writeMsg(requester.spark, 'ENDE');
-      writeMsg(partner.spark, 'ENDE');
+      stateToUpdate.isEnded = true;
+      // prepare final log entry
+      stateToUpdate.previousSelection = new Set(state.currentSelection);
+      stateToUpdate.currentSelection.clear();
+      stateToUpdate.turnCount += 1;
+      stateToUpdate.playerA.extraSelected = '';
+      stateToUpdate.playerB.extraSelected = '';
+      stateToUpdate.turn = null;
       gameStates.set(state.id, stateToUpdate);
       writeLog(state.id, getGameData(stateToUpdate, requester, partner));
-      broadcastTurn(stateToUpdate, requester, partner);
+
+      const rawScore = Math.ceil((100 * unqLeftNow
+        + 50 * state.extrasAvailable.undosLeft - 20 * commonLeftNow) / stateToUpdate.turnCount);
+      const score = rawScore < 0 ? 0 : rawScore;
+
+      const dataReq = {
+        ended: true,
+        board: Array.from(state[requester.sessionId].unique),
+        score,
+      };
+      const dataPartner = {
+        ended: true,
+        board: Array.from(state[partner.sessionId].unique),
+        score,
+      };
+      requester.spark.write(dataReq);
+      partner.spark.write(dataPartner);
       return;
     }
 
@@ -523,6 +544,7 @@ module.exports = (options) => {
 
     gameStates.set(state.id, stateToUpdate);
     writeLog(state.id, getGameData(stateToUpdate, requester, partner));
+
     broadcastTurn(stateToUpdate, requester, partner);
   };
 
@@ -665,6 +687,20 @@ module.exports = (options) => {
         // handled in checkPartnerGetState(), mentioned here to cover all possible return values
       } else {
         const data = JSON.parse(packet);
+        if (data.reset !== undefined) {
+          // the first player wants to leave the game
+          logger.info(`resetting pair ${state.id}`);
+          writeLog(state.id, { resetBy: requester.role });
+          gameStates.del(state.id);
+          resetSessionToUnpaired(requester.sessionId, sessionStore);
+          writeMsg(spark, 'Spiel wurde verlassen.');
+          spark.end();
+          writeMsg(partner.spark, 'Mitspieler hat das Spiel verlassen, ggf. "Neuer Partner" klicken');
+        }
+        if (state.isEnded) {
+          writeMsg(spark, 'Spiel beendet. Unten klicken für neues oder anderes Spiel.');
+          return;
+        }
         // here we evaluate the type of message
         if (data.txt !== undefined) {
           broadcastMessage(state, requester, partner, data);
@@ -678,17 +714,6 @@ module.exports = (options) => {
           }
         } else if (data.endturn !== undefined) {
           endTurn(state, partner, requester, ownturn);
-        } else if (data.reset !== undefined) {
-          // the first player wants to leave the game
-          logger.info(`resetting pair ${state.id}`);
-          writeLog(state.id, { resetBy: requester.role });
-          gameStates.del(state.id);
-          resetSessionToUnpaired(requester.sessionId, sessionStore);
-          writeMsg(spark, 'Spiel wurde verlassen.');
-          spark.end();
-          writeMsg(partner.spark, 'Mitspieler hat das Spiel verlassen, ggf. "Neuer Partner" klicken');
-        } else if (data.msg !== undefined) {
-          // TODO
         }
       }
     });
