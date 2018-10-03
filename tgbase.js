@@ -193,7 +193,7 @@ module.exports = (options) => {
             } else {
               // new pair or expired game state
               const logName = getLogname(reqSid, sessId);
-              logger.info(`new pair ${logName}`);
+              // logger.info(`new pair ${logName}`);
 
               jPartner.pairedWith = logName;
               jRequesterCopy.pairedWith = logName;
@@ -549,7 +549,7 @@ module.exports = (options) => {
   };
 
 
-  /** handle extra choice of players */
+  /** handle extra choice of players, which occurs during a turn */
   const applyExtra = (state, partner, requester, extra) => {
     // if ((!extra.undo && !extra.incSel) || (extra.undo && extra.incSel)) {
     //   writeMsg(requester.spark, 'Bitte eins auswählen.');
@@ -595,6 +595,11 @@ module.exports = (options) => {
           }
         });
         stateToUpdate.extrasAvailable.undosLeft -= 1;
+        // update the remaining selections to the value without extra selections
+        const commonLeftNow = getCommonLeft(stateToUpdate);
+        stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
+          ? commonLeftNow : paramSelections;
+        stateToUpdate.selectionsLeft -= state.currentSelection.size;
         // }
 
         // reset available extra actions
@@ -626,7 +631,7 @@ module.exports = (options) => {
       return;
     }
     const jRequesterSession = JSON.parse(syncSession(requesterSid, sessionStore));
-    logger.info('new connection');
+    // logger.info('new connection');
 
     if (jRequesterSession.pairedWith === 'noone') {
       // new connection or server restart
