@@ -95,10 +95,11 @@ const easyRouter = require('./routes/easy');
 const mediumRouter = require('./routes/medium');
 const loginRouter = require('./routes/login');
 
-app.use('/medium', mediumRouter);
-app.use('/easy', easyRouter);
-app.use('/', indexRouter);
+app.use('/', loginRouter);
 app.use('/login', loginRouter);
+app.use('/level1', easyRouter);
+app.use('/level2', mediumRouter);
+app.use('/level3', indexRouter);
 
 // when the index router detects an unauthenticated user it redirects
 // to the login page. after sending the login form, we do a basic authentication here
@@ -109,7 +110,8 @@ app.post('/login', (req, res) => {
   }
   if (pwd === req.body.password) {
     req.session.pairedWith = 'noone';
-    res.redirect('/medium');
+    // first page after login
+    res.redirect('/level1');
   } else {
     res.redirect('/login');
   }

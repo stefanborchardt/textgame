@@ -1,12 +1,12 @@
 // configure base game
 const options = {
   directory: 'tm',
-  paramSetSize: 200,
-  paramNumCommon: 20,
-  paramNumUnique: 5,
+  paramSetSize: 75,
+  paramNumCommon: 12,
+  paramNumUnique: 4,
   paramUndos: 3,
-  paramSelections: 4,
-  paramGameName: 'L5-train-flowers200',
+  paramSelections: 2,
+  paramGameName: 'L5-train-flowers75',
 };
 
 const g = require('./tgbase')(options);

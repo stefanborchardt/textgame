@@ -1,8 +1,8 @@
 (() => {
   const ANIMSPD = 100;
-  const GRIDDIM = 5;
-  const IMGSIZE = 17;
-  const MARGIN = 3;
+  const GRIDDIM = 4;
+  const IMGSIZE = 20;
+  const MARGIN = 5;
   const CLICKZOOM = 1.2;
   const HOVERZOOM = 1.8;
   const IMGDIR = 'g2';
@@ -283,10 +283,12 @@
       // TODO
       updateImages(data.board);
       $('#status').hide();
+      $('#write').hide();
       $('#extras').hide();
       $('#endTurn').hide();
       $('li').remove();
       addMessage('MODERATOR: Spiel beendet. Das sind die unterschiedlichen Bilder.');
+      addMessage(`MODERATOR: ${data.expl}`);
       addMessage('MODERATOR: Unten klicken für neues oder anderes Spiel. ');
       $('#active').text(`Spielende. ${data.score} Punkte.`);
       $('#playerturn').attr('class', 'ownTurn');

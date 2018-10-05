@@ -5,7 +5,7 @@ const router = express.Router();
 router.get('/', (req, res) => {
   if (req.session.pairedWith) {
     res.render('medium', {
-      title: 'Mediumgame',
+      title: 'Textgame Level 2',
     });
   } else {
     res.redirect('/login');

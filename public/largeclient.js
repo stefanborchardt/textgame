@@ -283,10 +283,12 @@
       // TODO
       updateImages(data.board);
       $('#status').hide();
+      $('#write').hide();
       $('#extras').hide();
       $('#endTurn').hide();
       $('li').remove();
       addMessage('MODERATOR: Spiel beendet. Das sind die unterschiedlichen Bilder.');
+      addMessage(`MODERATOR: ${data.expl}`);
       addMessage('MODERATOR: Unten klicken für neues oder anderes Spiel. ');
       $('#active').text(`Spielende. ${data.score} Punkte.`);
       $('#playerturn').attr('class', 'ownTurn');

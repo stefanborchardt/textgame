@@ -283,11 +283,13 @@
       // TODO
       updateImages(data.board);
       $('#status').hide();
+      $('#write').hide();
       $('#extras').hide();
       $('#endTurn').hide();
       $('li').remove();
       addMessage('MODERATOR: Spiel beendet. Das sind die unterschiedlichen Bilder.');
-      addMessage('MODERATOR: Unten klicken für neues oder anderes Spiel. ');
+      addMessage(`MODERATOR: ${data.expl}`);
+      addMessage('MODERATOR: : Weiter im <a href="/level2">nächsten Level.</a>');
       $('#active').text(`Spielende. ${data.score} Punkte.`);
       $('#playerturn').attr('class', 'ownTurn');
     } else if (data.turn !== undefined) {

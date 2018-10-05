@@ -1,12 +1,12 @@
 // configure base game
 const options = {
   directory: 'te',
-  paramSetSize: 200,
+  paramSetSize: 30,
   paramNumCommon: 7,
   paramNumUnique: 2,
   paramUndos: 2,
   paramSelections: 3,
-  paramGameName: 'L5-test-other200',
+  paramGameName: 'L5-test-other30',
 };
 
 const g = require('./tgbase')(options);

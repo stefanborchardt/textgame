@@ -322,8 +322,9 @@ module.exports = (options) => {
   };
 
   const broadcastMessage = (state, requester, partner, data) => {
-    const dataCopy = Object.assign({}, data);
+    const dataCopy = {};
     dataCopy.role = requester.role;
+    dataCopy.txt = data.txt;
     dataCopy.ownMsg = true;
     requester.spark.write(dataCopy);
     dataCopy.ownMsg = false;
@@ -431,7 +432,7 @@ module.exports = (options) => {
     }
   );
 
-  /** sends the current game state to the players */
+  /** sends the current game state to the players and writes to the log file */
   const broadcastTurn = (state, requester, partner) => {
     const isReqTurn = state.turn === requester.sessionId;
     requester.spark.write(getTurnData(requester, state, isReqTurn));
@@ -454,10 +455,10 @@ module.exports = (options) => {
       writeMsg(requester.spark, 'Bitte weniger auswählen!');
       return;
     }
-    if (state.currentSelection.size === 0) {
-      writeMsg(requester.spark, 'Mindestens eins auswählen!');
-      return;
-    }
+    // if (state.currentSelection.size === 0) {
+    //   writeMsg(requester.spark, 'Mindestens eins auswählen!');
+    //   return;
+    // }
 
     const unqLeftPrevious = getUniqueLeft(state, state.playerA)
       + getUniqueLeft(state, state.playerB);
@@ -489,19 +490,24 @@ module.exports = (options) => {
       gameStates.set(state.id, stateToUpdate);
       writeLog(state.id, getGameData(stateToUpdate, requester, partner));
 
+      // information for players
       const rawScore = Math.ceil((100 * unqLeftNow
         + 50 * state.extrasAvailable.undosLeft - 20 * commonLeftNow) / stateToUpdate.turnCount);
       const score = rawScore < 0 ? 0 : rawScore;
-
+      const explanation = `Nach ${stateToUpdate.turnCount} Zügen sind ${unqLeftNow}`
+        + ` unterschiedliche und ${commonLeftNow} gleiche Bilder übrig,`
+        + ` ${state.extrasAvailable.undosLeft} Rückgängig wurden nicht benutzt.`;
       const dataReq = {
         ended: true,
         board: Array.from(state[requester.sessionId].unique),
         score,
+        expl: explanation,
       };
       const dataPartner = {
         ended: true,
         board: Array.from(state[partner.sessionId].unique),
         score,
+        expl: explanation,
       };
       requester.spark.write(dataReq);
       partner.spark.write(dataPartner);
@@ -543,8 +549,6 @@ module.exports = (options) => {
     stateToUpdate.turn = partner.sessionId;
 
     gameStates.set(state.id, stateToUpdate);
-    writeLog(state.id, getGameData(stateToUpdate, requester, partner));
-
     broadcastTurn(stateToUpdate, requester, partner);
   };
 
@@ -609,7 +613,6 @@ module.exports = (options) => {
         // stateToUpdate.extrasAvailable.incSelection = false;
 
         gameStates.set(state.id, stateToUpdate);
-        writeLog(state.id, getGameData(stateToUpdate, requester, partner));
         broadcastTurn(stateToUpdate, requester, partner);
       } else {
         writeMsg(requester.spark, 'Keine Übereinstimmung bei Zusatzaktion.');
@@ -653,7 +656,7 @@ module.exports = (options) => {
       const requester = gameState[requesterSid];
       writeMsg(requester.spark, 'Mitspieler gefunden.');
       writeMsg(partner.spark, 'Mitspieler gefunden.');
-      // initialize client boards
+      // initialize clients
       broadcastTurn(gameState, requester, partner);
     } else {
       // no partner found yet
