@@ -8,7 +8,7 @@ router.get('/', (req, res) => {
       title: 'Textgame Level 3',
       intro: 'Wieder müssen Sie die Bilder entfernen, die Ihr Mitspieler auch sieht.'
         + ' Aber das es sind jetzt mehr. Dafür können Sie einen Joker einsetzen.'
-        + ' Je weniger Züge und Rückgängig gebraucht werden, desto besser.',
+        + ' Je weniger Züge, Rückgängig und Joker gebraucht werden, desto besser.',
     });
   } else {
     res.redirect('/login');

@@ -6,7 +6,7 @@
   const CLICKZOOM = 1.2;
   const HOVERZOOM = 1.8;
   const IMGDIR = 'g3';
-  const NEXTLVL = 3;
+  const NEXTLVL = 4;
 
   const primus = Primus.connect(`${location.origin}`);
 
