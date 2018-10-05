@@ -52,9 +52,8 @@ app.use(session({
   store: sessionStore,
 }));
 
-/**
- * Create Primus websocket
- */
+// ###################### websockets
+
 const primusLarge = new Primus(server, {
   transformer: 'websockets',
   pathname: '/tg',
@@ -90,16 +89,30 @@ const mediumSocket = require('./tgmedium')(sessionStore.store);
 primusMedium.on('connection', mediumSocket);
 // primusMedium.save('public/external/primusmedium.js');
 
+
+const primusThree = new Primus(server, {
+  transformer: 'websockets',
+  pathname: '/th',
+  parser: 'json',
+});
+const threeSocket = require('./tgthree')(sessionStore.store);
+
+primusThree.on('connection', threeSocket);
+// primusThree.save('public/external/primusthree.js');
+
+// ##################  routers for https connections
 const indexRouter = require('./routes/large');
 const easyRouter = require('./routes/easy');
 const mediumRouter = require('./routes/medium');
+const threeRouter = require('./routes/three');
 const loginRouter = require('./routes/login');
 
 app.use('/', loginRouter);
 app.use('/login', loginRouter);
 app.use('/level1', easyRouter);
 app.use('/level2', mediumRouter);
-app.use('/level3', indexRouter);
+app.use('/level3', threeRouter);
+app.use('/level4', indexRouter);
 
 // when the index router detects an unauthenticated user it redirects
 // to the login page. after sending the login form, we do a basic authentication here

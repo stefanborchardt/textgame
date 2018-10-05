@@ -496,6 +496,7 @@ module.exports = (options) => {
       const score = rawScore < 0 ? 0 : rawScore;
       const explanation = `Nach ${stateToUpdate.turnCount} Zügen sind ${unqLeftNow}`
         + ` unterschiedliche und ${commonLeftNow} gleiche Bilder übrig,`
+        // TODO only if available / build on client
         + ` ${state.extrasAvailable.undosLeft} Rückgängig wurden nicht benutzt.`;
       const dataReq = {
         ended: true,
