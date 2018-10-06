@@ -11,7 +11,7 @@ body {
 
 #drawing {
   margin-right: 3vw;
-  width: 100%;
+  width: 60vw;
   min-width: 500px;
   height: 80vh;
 }
@@ -92,9 +92,8 @@ li {
   margin-right: 0.5vw;
 } 
 
-#extras > label {
-  margin-right: 1vw;
-  width: 100%;
+#extras > label, #sendExtra {
+  margin-right: 1.5vw;
 } 
 
 .wideButton, #status {

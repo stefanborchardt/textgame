@@ -160,7 +160,6 @@
     if (evt.which === 13) {
       sendText();
     } else {
-      // TODO throttle seems not to be working
       throttleTyping();
     }
   };
@@ -180,8 +179,8 @@
 
   $('#sendExtra').on('click', () => {
     const undo = $('#undo').prop('checked');
-    const incSel = $('#incsels').prop('checked');
-    primus.write(JSON.stringify({ act: 'extra', extra: { undo, incSel } }));
+    const joker = $('#joker').prop('checked');
+    primus.write(JSON.stringify({ act: 'extra', extra: { undo, joker } }));
   });
 
   $('#newPartner').on('click', () => {
@@ -200,7 +199,6 @@
     if (boardImages.size === 0) {
       // game state at begin of turn
       show('endTurn');
-      show('extras');
       show('write');
       show('status');
       // first time drawing
@@ -235,23 +233,23 @@
       $('#playerturn').attr('class', 'partnerTurn');
     }
     // extra actions
-    hide('undo');
-    hide('incsels');
+    $('.undo').hide();
+    $('.joker').hide();
     hide('extras');
     $('#undo').prop('checked', false);
-    $('#incsels').prop('checked', false);
+    $('#undo-partner').prop('checked', false);
+    $('#joker').prop('checked', false);
+    $('#joker-partner').prop('checked', false);
     if (data.extra.undo) {
-      show('undo');
+      $('.undo').show();
       show('extras');
     }
-    if (data.extra.incSelection) {
-      show('incsels');
+    if (data.extra.joker) {
+      $('.joker').show();
       show('extras');
     }
     // status info
     $('#turncount').text(data.turnCount);
-    $('#undosAvailable').text(data.extra.undosLeft);
-    $('#incselsAvailable').text(data.extra.incSelectLeft);
     $('#selects').text(data.selectionsLeft);
     $('#unqA').text(data.uniqueLeftA);
     $('#unqB').text(data.uniqueLeftB);
@@ -280,6 +278,10 @@
     } else if (data.updSelLeft !== undefined) {
       // update selections
       $('#selects').text(data.updSelLeft);
+    } else if (data.updExtras !== undefined) {
+      // update partner extra selects
+      $('#undo-partner').prop('checked', data.extra.undo);
+      $('#joker-partner').prop('checked', data.extra.joker);
     } else if (data.ended !== undefined) {
       // TODO
       updateImages(data.board);
@@ -296,7 +298,6 @@
     } else if (data.turn !== undefined) {
       handleTurnData(data);
     } else if (data.typing !== undefined) {
-      // TODO
       if ($('.partnerTyping').length === 0) {
         addMessage(`${data.role}: tippt...`, 'partnerTyping');
         setTimeout(() => {

@@ -4,7 +4,8 @@ const options = {
   paramSetSize: 75,
   paramNumCommon: 20,
   paramNumUnique: 5,
-  paramUndos: 3,
+  paramUndo: true,
+  paramJoker: true,
   paramSelections: 4,
   paramGameName: 'L5-train-3x25',
 };

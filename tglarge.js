@@ -4,8 +4,9 @@ const g = require('./tgbase')({
   paramSetSize: 500,
   paramNumCommon: 39,
   paramNumUnique: 10,
-  paramUndos: 5,
-  paramSelections: 6,
+  paramUndo: true,
+  paramJoker: true,
+  paramSelections: 5,
   paramGameName: 'L5-test-5x100',
 });
 

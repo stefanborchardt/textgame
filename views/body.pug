@@ -32,12 +32,6 @@ block content
 				div 
 					span#turncount 
 					|  Züge bisher 
-				div 
-					span#undosAvailable
-					|  Rückgängig verfügbar 
-				//- div 
-				//- 	span#incselsAvailable
-				//- 	|  extra Entfernen verfügbar 
 			
 			div#chat
 				ul#messages
@@ -48,10 +42,12 @@ block content
 
 			div(class='inputsection')#extras
 				button#sendExtra Wählen: 
-				input(type='checkbox', name='extras', value='undo')#undo
-				label(for='undo') Rückgängig
-				//- input(type='radio', name='extras', value='incsels')#incsels
-				//- label(for='incsels') Entfernen erhöhen
+				input(type='checkbox', class='undo', name='extras', value='undo')#undo
+				input(type='checkbox', class='undo', name='extras', value='undo-partner', disabled ='true')#undo-partner
+				label(for='undo', class='undo') Rückgängig
+				input(type='checkbox', class='joker', name='extras', value='joker')#joker
+				input(type='checkbox', class='joker', name='extras', value='joker-partner', disabled ='true')#joker-partner
+				label(for='joker', class='joker') Joker
 
 			div(class='wideButton')
 				button#endTurn Zug beenden

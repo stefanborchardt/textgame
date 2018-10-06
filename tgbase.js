@@ -13,10 +13,13 @@ module.exports = (options) => {
     // must be named 100.jpg .. {setsize+99}.jpg, not tested for >900
     paramNumCommon, // number of shared images
     paramNumUnique, // unique images for each player
-    paramUndos, // number of undos
+    paramUndo, // availability undos
+    paramJoker, // availability jokers
     paramSelections, // number of selections per turn
     paramGameName, // how this game is identified in game logs
   } = options;
+
+  const jokerSize = Math.floor(paramSelections / 2);
 
   const maxAge = parseInt(config.get('cookie.maxage'), 10);
 
@@ -122,7 +125,6 @@ module.exports = (options) => {
     return r;
   };
 
-  /** TODO */
   const createInitialState = () => {
     // first digit of photo indicates category
     const allImages = new Set();
@@ -231,9 +233,7 @@ module.exports = (options) => {
                 selectionsLeft: paramSelections,
                 extrasAvailable: {
                   undo: false, // nothing to undo in first turn
-                  undosLeft: paramUndos,
-                  // incSelection: false,
-                  // incSelectLeft: paramUndos,
+                  joker: paramJoker,
                 },
                 currentSelection: new Set(),
                 previousSelection: new Set(),
@@ -357,8 +357,8 @@ module.exports = (options) => {
           .filter(val => state[state.playerB].board.has(val)),
       },
       extras: {
-        undosLeft: state.extrasAvailable.undosLeft,
-        // incSelectLeft: state.extrasAvailable.incSelectLeft,
+        undo: state.extrasAvailable.undo,
+        joker: state.extrasAvailable.joker,
       },
       name: state.name,
       common: Array.from(state.common),
@@ -381,7 +381,7 @@ module.exports = (options) => {
     }
   );
 
-  const registerClick = (state, requester, partner, ownTurn, id, selected) => {
+  const registerClick = (state, requester, partner, id, selected) => {
     const curSel = state.currentSelection;
     const stateToUpdate = gameStates.get(state.id);
     if (selected && !curSel.has(id)) {
@@ -396,6 +396,7 @@ module.exports = (options) => {
     stateToUpdate.currentSelection = curSel;
     gameStates.set(state.id, stateToUpdate);
     requester.spark.write({ updSelLeft: stateToUpdate.selectionsLeft });
+    partner.spark.write({ updSelLeft: stateToUpdate.selectionsLeft });
     writeLog(state.id, getShortGameData(stateToUpdate, requester, partner));
   };
 
@@ -423,9 +424,7 @@ module.exports = (options) => {
       selectionsLeft: state.selectionsLeft,
       extra: {
         undo: state.extrasAvailable.undo,
-        undosLeft: state.extrasAvailable.undosLeft,
-        // incSelection: state.extrasAvailable.incSelection,
-        // incSelectLeft: state.extrasAvailable.incSelectLeft,
+        joker: state.extrasAvailable.joker,
       },
       uniqueLeftA: getUniqueLeft(state, state.playerA),
       uniqueLeftB: getUniqueLeft(state, state.playerB),
@@ -444,6 +443,37 @@ module.exports = (options) => {
   // high potential for game specific implementation: hand in as
   // module exports parameters
   // ======================================================
+
+  function calculateIncreasedSelections() {
+    return Math.ceil(1.3 * paramSelections);
+  }
+
+  function calculateScore(state, unqLeftNow) {
+    if (unqLeftNow === 0) {
+      return 0;
+    }
+    // roughly estimating impact of unused extras as fraction of saved turns
+    const boardSize = (paramNumUnique + paramNumCommon);
+    // joker saves one of the selections from the share of common pieces
+    const jokerAdjust = 2 / paramSelections * paramNumCommon / boardSize;
+    // using undo means giving up extra selects
+    const incSelectAdjust = calculateIncreasedSelections() / paramSelections;
+    // undo saves the share of the unique pieces
+    const undoAdjust = incSelectAdjust * paramNumUnique / boardSize;
+    const adjustedTurnCount = state.turnCount
+      - (paramUndo && (paramUndo === state.extrasAvailable.undo) ? undoAdjust : 0)
+      - (paramJoker && (paramJoker === state.extrasAvailable.joker) ? jokerAdjust : 0);
+    // the turnratio can be < 1 not only because of unused extras
+    // but also because increased selections saved turns
+    // but then the quality score will also be < 1
+    const baseTurnNumber = Math.ceil(paramNumCommon / paramSelections);
+    const turnRatio = adjustedTurnCount / baseTurnNumber;
+    // at least some common images must be left, avoiding div by 0 for score
+    const qualityScore = unqLeftNow / (2 * paramNumUnique);
+    const score = 100 * Math.exp(-1.5 * (turnRatio / qualityScore - 1));
+    return Math.floor(score);
+  }
+
 
   // ends requesters turn in session store
   // assumes that the partner connection has been checked
@@ -470,6 +500,15 @@ module.exports = (options) => {
       stateToUpdate[partner.sessionId].board.delete(val);
     });
 
+    // clear current turn data
+    stateToUpdate.previousSelection = new Set(state.currentSelection);
+    stateToUpdate.currentSelection.clear();
+    stateToUpdate.turnCount += 1;
+    // reset player choices in case extra selection has not been agreed upon
+    stateToUpdate.playerA.extraSelected = '';
+    stateToUpdate.playerB.extraSelected = '';
+
+
     // calculate the number of shared images left
     const commonLeftNow = getCommonLeft(stateToUpdate);
     // calculate unique images lost in this turn
@@ -481,23 +520,22 @@ module.exports = (options) => {
       // game ends
       stateToUpdate.isEnded = true;
       // prepare final log entry
-      stateToUpdate.previousSelection = new Set(state.currentSelection);
-      stateToUpdate.currentSelection.clear();
-      stateToUpdate.turnCount += 1;
-      stateToUpdate.playerA.extraSelected = '';
-      stateToUpdate.playerB.extraSelected = '';
       stateToUpdate.turn = null;
       gameStates.set(state.id, stateToUpdate);
       writeLog(state.id, getGameData(stateToUpdate, requester, partner));
 
+      // calculate score
+      const score = calculateScore(state, unqLeftNow);
+
       // information for players
-      const rawScore = Math.ceil((100 * unqLeftNow
-        + 50 * state.extrasAvailable.undosLeft - 20 * commonLeftNow) / stateToUpdate.turnCount);
-      const score = rawScore < 0 ? 0 : rawScore;
-      const explanation = `Nach ${stateToUpdate.turnCount} Zügen sind ${unqLeftNow}`
-        + ` unterschiedliche und ${commonLeftNow} gleiche Bilder übrig,`
-        // TODO only if available / build on client
-        + ` ${state.extrasAvailable.undosLeft} Rückgängig wurden nicht benutzt.`;
+      let explanation = `Nach ${stateToUpdate.turnCount} Zügen sind ${unqLeftNow} unterschiedliche Bilder übrig,`;
+      if (paramUndo) {
+        explanation += ` Rückgängig wurde${(state.extrasAvailable.undo === paramUndo) ? ' nicht' : ''} benutzt.`;
+      }
+      if (paramJoker) {
+        explanation += ` Joker wurde${(state.extrasAvailable.joker === paramJoker) ? ' nicht' : ''} eingesetzt.`;
+      }
+
       const dataReq = {
         ended: true,
         board: Array.from(state[requester.sessionId].unique),
@@ -515,13 +553,11 @@ module.exports = (options) => {
       return;
     }
 
+    // if game not ended update number selections for next turn
     const upExtrasAvail = stateToUpdate.extrasAvailable;
     if (unqLeftPrevious - unqLeftNow > 0) {
-      // make extra actions available
-      // if (upExtrasAvail.incSelectLeft > 0 && commonLeftNow > 0) {
-      // upExtrasAvail.incSelection = true;
-      // }
-      const increasedSelection = Math.ceil(1.3 * paramSelections);
+      // increase available selections
+      const increasedSelection = calculateIncreasedSelections();
       stateToUpdate.selectionsLeft = commonLeftNow < increasedSelection
         ? commonLeftNow : increasedSelection;
       writeMsg(requester.spark, 'Falsches Bild gelöscht - in diesem Zug mehr Entfernen verfügbar.');
@@ -529,23 +565,17 @@ module.exports = (options) => {
     } else {
       stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
         ? commonLeftNow : paramSelections;
-      //   upExtrasAvail.incSelection = false;
-      //   upExtrasAvail.undo = false;
     }
-    if (upExtrasAvail.undosLeft > 0) {
+
+    // could be last turn, disable to simplify logic
+    if (jokerSize >= stateToUpdate.selectionsLeft) {
+      upExtrasAvail.joker = false;
+    }
+    if (stateToUpdate.turnCount === 1 && paramUndo) {
       upExtrasAvail.undo = true;
     }
     stateToUpdate.extrasAvailable = upExtrasAvail;
 
-    // calculate number of selections for next turn
-
-    // clear current turn data
-    stateToUpdate.previousSelection = new Set(state.currentSelection);
-    stateToUpdate.currentSelection.clear();
-    stateToUpdate.turnCount += 1;
-    // reset player choices in case extra selection was not finished
-    stateToUpdate.playerA.extraSelected = '';
-    stateToUpdate.playerB.extraSelected = '';
     // switch player
     stateToUpdate.turn = partner.sessionId;
 
@@ -556,70 +586,84 @@ module.exports = (options) => {
 
   /** handle extra choice of players, which occurs during a turn */
   const applyExtra = (state, partner, requester, extra) => {
-    // if ((!extra.undo && !extra.incSel) || (extra.undo && extra.incSel)) {
-    //   writeMsg(requester.spark, 'Bitte eins auswählen.');
-    //   return;
-    // }
-
     // save selection
     const stateToUpdate = gameStates.get(state.id);
     const reqSelected = stateToUpdate[requester.sessionId];
     if (extra.undo) {
       reqSelected.extraSelected = 'undo';
       writeMsg(partner.spark, 'Mitspieler wählt "Rückgängig".');
+    } else if (extra.joker) {
+      reqSelected.extraSelected = 'joker';
+      writeMsg(partner.spark, 'Mitspieler wählt "Joker".');
     } else {
       reqSelected.extraSelected = '';
-      writeMsg(partner.spark, '"Rückgängig" von Mitspieler abgewählt.');
+      writeMsg(partner.spark, 'Extra von Mitspieler abgewählt.');
     }
-    // else {
-    //   reqSelected.extraSelected = 'incSelection';
-    //   writeMsg(partner.spark, 'Mitspieler wählt "extra Auswahl".');
-    // }
+    partner.spark.write({ updExtras: true, extra });
     gameStates.set(state.id, stateToUpdate);
     writeLog(state.id, getShortGameData(stateToUpdate, requester, partner));
 
     // check for agreement
-    if (stateToUpdate[partner.sessionId].extraSelected !== '') {
-      if (stateToUpdate[partner.sessionId].extraSelected === reqSelected.extraSelected) {
-        // if (extra.incSel) {
-        //   stateToUpdate.selectionsLeft += 1;
-        //   stateToUpdate.extrasAvailable.incSelectLeft -= 1;
-        // } else {
-
-        // undo
-        stateToUpdate.previousSelection.forEach((val) => {
-          if (state.common.has(val)) {
-            stateToUpdate[state.playerA].board.add(val);
-            stateToUpdate[state.playerB].board.add(val);
-          }
-          if (state[state.playerA].unique.has(val)) {
-            stateToUpdate[state.playerA].board.add(val);
-          }
-          if (state[state.playerB].unique.has(val)) {
-            stateToUpdate[state.playerB].board.add(val);
-          }
-        });
-        stateToUpdate.extrasAvailable.undosLeft -= 1;
-        // update the remaining selections to the value without extra selections
-        const commonLeftNow = getCommonLeft(stateToUpdate);
-        stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
-          ? commonLeftNow : paramSelections;
-        stateToUpdate.selectionsLeft -= state.currentSelection.size;
-        // }
-
-        // reset available extra actions
-        stateToUpdate[state.playerA].extraSelected = '';
-        stateToUpdate[state.playerB].extraSelected = '';
-        stateToUpdate.extrasAvailable.undo = false;
-        // stateToUpdate.extrasAvailable.incSelection = false;
-
-        gameStates.set(state.id, stateToUpdate);
-        broadcastTurn(stateToUpdate, requester, partner);
-      } else {
-        writeMsg(requester.spark, 'Keine Übereinstimmung bei Zusatzaktion.');
-        writeMsg(partner.spark, 'Keine Übereinstimmung bei Zusatzaktion.');
-      }
+    if (stateToUpdate[partner.sessionId].extraSelected === '') {
+      return;
     }
+    if (stateToUpdate[partner.sessionId].extraSelected !== reqSelected.extraSelected) {
+      writeMsg(requester.spark, 'Keine Übereinstimmung bei Zusatzaktion.');
+      writeMsg(partner.spark, 'Keine Übereinstimmung bei Zusatzaktion.');
+      return;
+    }
+
+    const upExtrasAvail = stateToUpdate.extrasAvailable;
+    if (reqSelected.extraSelected === 'undo') {
+      // undo
+      stateToUpdate.previousSelection.forEach((val) => {
+        if (state.common.has(val)) {
+          stateToUpdate[state.playerA].board.add(val);
+          stateToUpdate[state.playerB].board.add(val);
+        }
+        if (state[state.playerA].unique.has(val)) {
+          stateToUpdate[state.playerA].board.add(val);
+        }
+        if (state[state.playerB].unique.has(val)) {
+          stateToUpdate[state.playerB].board.add(val);
+        }
+      });
+      stateToUpdate.turnCount -= 1;
+      upExtrasAvail.undo = false;
+      // update the remaining selections to the value without extra selections
+    } else {
+      // joker
+      let removed = 0;
+      // remove jokerSize common images from the boards and selection
+      state.common.forEach((val) => {
+        if (removed < jokerSize) {
+          if (stateToUpdate[requester.sessionId].board.delete(val)) {
+            removed += 1;
+          }
+          stateToUpdate.currentSelection.delete(val);
+          stateToUpdate[partner.sessionId].board.delete(val);
+        }
+      });
+
+      upExtrasAvail.joker = false;
+    }
+
+    const commonLeftNow = getCommonLeft(stateToUpdate);
+    stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
+      ? commonLeftNow : paramSelections;
+    // could be last turn, disable to simplify logic
+    if (jokerSize >= stateToUpdate.selectionsLeft) {
+      upExtrasAvail.joker = false;
+    }
+
+    stateToUpdate.selectionsLeft -= state.currentSelection.size;
+    stateToUpdate.extrasAvailable = upExtrasAvail;
+    // reset extra actions
+    stateToUpdate[state.playerA].extraSelected = '';
+    stateToUpdate[state.playerB].extraSelected = '';
+
+    gameStates.set(state.id, stateToUpdate);
+    broadcastTurn(stateToUpdate, requester, partner);
   };
 
   // ====================================================== connection handler
@@ -715,7 +759,7 @@ module.exports = (options) => {
           broadcastMessage(state, requester, partner, data);
         } else if (data.act !== undefined) {
           if (data.act === 'click') {
-            registerClick(state, requester, partner, ownturn, data.id, data.selected);
+            registerClick(state, requester, partner, data.id, data.selected);
           } else if (data.act === 'extra') {
             applyExtra(state, partner, requester, data.extra);
           } else if (data.act === 'typing') {
