@@ -19,7 +19,7 @@ module.exports = (options) => {
     paramGameName, // how this game is identified in game logs
   } = options;
 
-  const jokerSize = Math.floor(paramSelections / 2);
+  const jokerSize = Math.ceil(paramSelections / 2);
 
   const maxAge = parseInt(config.get('cookie.maxage'), 10);
 
@@ -455,7 +455,7 @@ module.exports = (options) => {
     // roughly estimating impact of unused extras as fraction of saved turns
     const boardSize = (paramNumUnique + paramNumCommon);
     // joker saves one of the selections from the share of common pieces
-    const jokerAdjust = 2 / paramSelections * paramNumCommon / boardSize;
+    const jokerAdjust = jokerSize / paramSelections * paramNumCommon / boardSize;
     // using undo means giving up extra selects
     const incSelectAdjust = calculateIncreasedSelections() / paramSelections;
     // undo saves the share of the unique pieces
@@ -522,10 +522,12 @@ module.exports = (options) => {
       // prepare final log entry
       stateToUpdate.turn = null;
       gameStates.set(state.id, stateToUpdate);
-      writeLog(state.id, getGameData(stateToUpdate, requester, partner));
 
       // calculate score
       const score = calculateScore(state, unqLeftNow);
+      const logData = getGameData(stateToUpdate, requester, partner);
+      logData.score = score;
+      writeLog(state.id, logData);
 
       // information for players
       let explanation = `Nach ${stateToUpdate.turnCount} Zügen sind ${unqLeftNow} unterschiedliche Bilder übrig,`;
@@ -631,32 +633,38 @@ module.exports = (options) => {
       stateToUpdate.turnCount -= 1;
       upExtrasAvail.undo = false;
       // update the remaining selections to the value without extra selections
+      const commonLeftNow = getCommonLeft(stateToUpdate);
+      stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
+        ? commonLeftNow : paramSelections;
+      stateToUpdate.selectionsLeft -= state.currentSelection.size;
     } else {
       // joker
       let removed = 0;
+      let curSelRemoved = 0;
       // remove jokerSize common images from the boards and selection
+      // extra action should only be available if there are enough images
+      // to remove left
       state.common.forEach((val) => {
         if (removed < jokerSize) {
           if (stateToUpdate[requester.sessionId].board.delete(val)) {
             removed += 1;
           }
-          stateToUpdate.currentSelection.delete(val);
+          if (stateToUpdate.currentSelection.delete(val)) {
+            curSelRemoved += 1;
+          }
           stateToUpdate[partner.sessionId].board.delete(val);
         }
       });
 
+      stateToUpdate.selectionsLeft -= curSelRemoved;
       upExtrasAvail.joker = false;
     }
 
-    const commonLeftNow = getCommonLeft(stateToUpdate);
-    stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
-      ? commonLeftNow : paramSelections;
     // could be last turn, disable to simplify logic
     if (jokerSize >= stateToUpdate.selectionsLeft) {
       upExtrasAvail.joker = false;
     }
 
-    stateToUpdate.selectionsLeft -= state.currentSelection.size;
     stateToUpdate.extrasAvailable = upExtrasAvail;
     // reset extra actions
     stateToUpdate[state.playerA].extraSelected = '';

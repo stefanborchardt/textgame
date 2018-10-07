@@ -6,9 +6,9 @@ router.get('/', (req, res) => {
   if (req.session.pairedWith) {
     res.render('three', {
       title: 'Textgame Level 3',
-      intro: 'Wieder müssen Sie die Bilder entfernen, die Ihr Mitspieler auch sieht.'
-        + ' Aber das es sind jetzt mehr. Dafür können Sie einen Joker einsetzen.'
-        + ' Je weniger Züge, Rückgängig und Joker gebraucht werden, desto besser.',
+      intro: 'Jetzt sind mehr Bilder zu entfernen, die Ihr Mitspieler auch sieht.'
+        + ' Zum Ausgleich können Sie einen <strong>Joker</strong> einsetzen,'
+        + ' der zwei gleiche Bilder entfernt.',
     });
   } else {
     res.redirect('/login');

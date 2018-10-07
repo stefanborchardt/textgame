@@ -11,9 +11,9 @@ body {
 
 #drawing {
   margin-right: 3vw;
-  width: 60vw;
+  width: 70vh;
   min-width: 500px;
-  height: 80vh;
+  min-height: 500px;
 }
 
 #right {
@@ -105,3 +105,6 @@ li {
   width: 100%;
 }
 
+#copyright {
+  margin-top: 10vh;
+}
