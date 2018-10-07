@@ -233,7 +233,9 @@ module.exports = (options) => {
                 selectionsLeft: paramSelections,
                 extrasAvailable: {
                   undo: false, // nothing to undo in first turn
+                  undoUsed: false,
                   joker: paramJoker,
+                  jokerUsed: false,
                 },
                 currentSelection: new Set(),
                 previousSelection: new Set(),
@@ -356,10 +358,7 @@ module.exports = (options) => {
         uniqueLeftB: Array.from(state[state.playerB].unique)
           .filter(val => state[state.playerB].board.has(val)),
       },
-      extras: {
-        undo: state.extrasAvailable.undo,
-        joker: state.extrasAvailable.joker,
-      },
+      extras: state.extrasAvailable,
       name: state.name,
       common: Array.from(state.common),
       uniqueA: Array.from(state[state.playerA].unique),
@@ -462,8 +461,9 @@ module.exports = (options) => {
     // undo saves the share of the unique pieces
     const undoAdjust = incSelectAdjust * paramNumUnique / boardSize;
     const adjustedTurnCount = state.turnCount
-      - (paramUndo && (paramUndo === state.extrasAvailable.undo) ? undoAdjust : 0)
-      - (paramJoker && (paramJoker === state.extrasAvailable.joker) ? jokerAdjust : 0);
+      // TODO recheck if we should deduct a full turn if undo has been used
+      - (paramUndo && !state.extrasAvailable.undoUsed ? undoAdjust : 1)
+      - (paramJoker && !state.extrasAvailable.jokerUsed ? jokerAdjust : 0);
     // the turnratio can be < 1 not only because of unused extras
     // but also because increased selections saved turns
     // but then the quality score will also be < 1
@@ -533,10 +533,10 @@ module.exports = (options) => {
       // information for players
       let explanation = `Nach ${stateToUpdate.turnCount} Zügen sind ${unqLeftNow} unterschiedliche Bilder übrig,`;
       if (paramUndo) {
-        explanation += ` Rückgängig wurde${(state.extrasAvailable.undo === paramUndo) ? ' nicht' : ''} benutzt.`;
+        explanation += ` Rückgängig wurde${!state.extrasAvailable.undoUsed ? ' nicht' : ''} benutzt.`;
       }
       if (paramJoker) {
-        explanation += ` Joker wurde${(state.extrasAvailable.joker === paramJoker) ? ' nicht' : ''} eingesetzt.`;
+        explanation += ` Joker wurde${!state.extrasAvailable.jokerUsed ? ' nicht' : ''} eingesetzt.`;
       }
 
       const dataReq = {
@@ -573,8 +573,10 @@ module.exports = (options) => {
     // could be last turn, disable to simplify logic
     if (jokerSize >= stateToUpdate.selectionsLeft) {
       upExtrasAvail.joker = false;
+    } else if (paramJoker && !upExtrasAvail.jokerUsed) {
+      upExtrasAvail.joker = true;
     }
-    if (stateToUpdate.turnCount === 1 && paramUndo) {
+    if (stateToUpdate.turnCount > 0 && paramUndo && !upExtrasAvail.undoUsed) {
       upExtrasAvail.undo = true;
     }
     stateToUpdate.extrasAvailable = upExtrasAvail;
@@ -592,10 +594,10 @@ module.exports = (options) => {
     // save selection
     const stateToUpdate = gameStates.get(state.id);
     const reqSelected = stateToUpdate[requester.sessionId];
-    if (extra.undo) {
+    if (extra.undo && paramUndo && !state.extrasAvailable.undoUsed) {
       reqSelected.extraSelected = 'undo';
       writeMsg(partner.spark, 'Mitspieler wählt "Rückgängig".');
-    } else if (extra.joker) {
+    } else if (extra.joker && paramJoker && !state.extrasAvailable.jokerUsed) {
       reqSelected.extraSelected = 'joker';
       writeMsg(partner.spark, 'Mitspieler wählt "Joker".');
     } else {
@@ -631,8 +633,8 @@ module.exports = (options) => {
           stateToUpdate[state.playerB].board.add(val);
         }
       });
-      stateToUpdate.turnCount -= 1;
       upExtrasAvail.undo = false;
+      upExtrasAvail.undoUsed = true;
       // update the remaining selections to the value without extra selections
       const commonLeftNow = getCommonLeft(stateToUpdate);
       stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
@@ -658,12 +660,14 @@ module.exports = (options) => {
       });
 
       stateToUpdate.selectionsLeft -= curSelRemoved;
-      upExtrasAvail.joker = false;
+      upExtrasAvail.jokerUsed = true;
     }
 
     // could be last turn, disable to simplify logic
     if (jokerSize >= stateToUpdate.selectionsLeft) {
       upExtrasAvail.joker = false;
+    } else if (paramJoker && !upExtrasAvail.jokerUsed) {
+      upExtrasAvail.joker = true;
     }
 
     stateToUpdate.extrasAvailable = upExtrasAvail;
