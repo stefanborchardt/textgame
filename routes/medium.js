@@ -10,7 +10,7 @@ router.get('/', (req, res) => {
         + ' wenn Ihr Mitspieler das auch <strong>wählt</strong>.'
         + ' Dabei gehen gehen allerdings die zusätzlichen Auswahlen verloren.'
         + ' Wieder müssen Sie die Bilder entfernen, die Ihr Mitspieler auch sieht.'
-        + ' Für ein unbenutztes Rückgängig gibt es Bonuspunkte.',
+        + ' Für ein unbenutztes Rückgängig gibt es <strong>Bonuspunkte</strong>.',
     });
   } else {
     res.redirect('/login');

@@ -9,7 +9,7 @@ router.get('/', (req, res) => {
       intro: 'Sie und Ihr Mitspieler sehen die gleichen Bilder - fast. Finden Sie die Unterschiede,'
         + ' indem Sie abwechselnd <strong>alle gleichen entfernen</strong>. Je weniger Züge, desto besser. Klicken Sie'
         + ' auf <strong>Zug beenden</strong>, um sich abzuwechseln. Falls ein falsches Bild ausgewählt wurde,'
-        + ' können Sie im nächsten Zug <strong>zusätzliche entfernen</strong>.',
+        + ' können Sie im nächsten Zug <strong>zusätzliche entfernen</strong>. Ein Ergebnis von <strong>100 Punkten</strong> ist gut.',
     });
   } else {
     res.redirect('/login');

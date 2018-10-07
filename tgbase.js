@@ -377,6 +377,7 @@ module.exports = (options) => {
       selectionsLeft: state.selectionsLeft,
       currentSelection: Array.from(state.currentSelection),
       extrasAvailable: state.extrasAvailable,
+      extraSelectBy: state[requester.sessionId].role,
       extraSelected: state[requester.sessionId].extraSelected,
     }
   );
