@@ -483,7 +483,7 @@ module.exports = (options) => {
       logger.warn(`ending turn by ${requester.sessionId} in game ${state.id} not allowed`);
     }
     if (state.selectionsLeft < 0) {
-      writeMsg(requester.spark, 'Bitte weniger auswählen!');
+      writeMsg(requester.spark, 'Please choose less!');
       return;
     }
     // if (state.currentSelection.size === 0) {
@@ -531,12 +531,12 @@ module.exports = (options) => {
       writeLog(state.id, logData);
 
       // information for players
-      let explanation = `Nach ${stateToUpdate.turnCount} Zügen sind ${unqLeftNow} unterschiedliche Bilder übrig,`;
+      let explanation = `After ${stateToUpdate.turnCount} turns ${unqLeftNow} unique images are left,`;
       if (paramUndo) {
-        explanation += ` Rückgängig wurde${!state.extrasAvailable.undoUsed ? ' nicht' : ''} benutzt.`;
+        explanation += ` Undo has${!state.extrasAvailable.undoUsed ? ' not' : ''} been used.`;
       }
       if (paramJoker) {
-        explanation += ` Joker wurde${!state.extrasAvailable.jokerUsed ? ' nicht' : ''} eingesetzt.`;
+        explanation += ` Joker has${!state.extrasAvailable.jokerUsed ? ' not' : ''} been used.`;
       }
 
       const dataReq = {
@@ -563,8 +563,8 @@ module.exports = (options) => {
       const increasedSelection = calculateIncreasedSelections();
       stateToUpdate.selectionsLeft = commonLeftNow < increasedSelection
         ? commonLeftNow : increasedSelection;
-      writeMsg(requester.spark, 'Falsches Bild gelöscht - in diesem Zug mehr Entfernen verfügbar.');
-      writeMsg(partner.spark, 'Falsches Bild gelöscht - in diesem Zug mehr Entfernen verfügbar.');
+      writeMsg(requester.spark, 'Removed an unique image - extra Selections available in this turn.');
+      writeMsg(partner.spark, 'Removed an unique image - extra Selections available in this turn.');
     } else {
       stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
         ? commonLeftNow : paramSelections;
@@ -596,13 +596,13 @@ module.exports = (options) => {
     const reqSelected = stateToUpdate[requester.sessionId];
     if (extra.undo && paramUndo && !state.extrasAvailable.undoUsed) {
       reqSelected.extraSelected = 'undo';
-      writeMsg(partner.spark, 'Mitspieler wählt "Rückgängig".');
+      writeMsg(partner.spark, 'Other player chooses "Undo"');
     } else if (extra.joker && paramJoker && !state.extrasAvailable.jokerUsed) {
       reqSelected.extraSelected = 'joker';
-      writeMsg(partner.spark, 'Mitspieler wählt "Joker".');
+      writeMsg(partner.spark, 'Other player chooses "Joker"');
     } else {
       reqSelected.extraSelected = '';
-      writeMsg(partner.spark, 'Extra von Mitspieler abgewählt.');
+      writeMsg(partner.spark, 'Other player not choosing extra any longer.');
     }
     partner.spark.write({ updExtras: true, extra });
     gameStates.set(state.id, stateToUpdate);
@@ -613,8 +613,8 @@ module.exports = (options) => {
       return;
     }
     if (stateToUpdate[partner.sessionId].extraSelected !== reqSelected.extraSelected) {
-      writeMsg(requester.spark, 'Keine Übereinstimmung bei Zusatzaktion.');
-      writeMsg(partner.spark, 'Keine Übereinstimmung bei Zusatzaktion.');
+      writeMsg(requester.spark, 'No agreement on extra action.');
+      writeMsg(partner.spark, 'No agreement on extra action.');
       return;
     }
 
@@ -644,7 +644,7 @@ module.exports = (options) => {
       // joker
       let removed = 0;
       let curSelRemoved = 0;
-      // remove jokerSize common images from the boards and selection
+      // remove jokerSize common images from the boards and selection.
       // extra action should only be available if there are enough images
       // to remove left
       state.common.forEach((val) => {
@@ -688,7 +688,7 @@ module.exports = (options) => {
     const requesterSid = extractSid(spark.headers.cookie);
     if (requesterSid == null) {
       logger.info('connection without cookie');
-      writeMsg(spark, 'Cookies bitte zulassen.');
+      writeMsg(spark, 'Please allow cookies.');
       return;
     }
     const jRequesterSession = JSON.parse(syncSession(requesterSid, sessionStore));
@@ -697,11 +697,11 @@ module.exports = (options) => {
     if (jRequesterSession.pairedWith === 'noone') {
       // new connection or server restart
       // going to find new partner
-      writeMsg(spark, 'Willkommen! Suche neuen Mitspieler...');
+      writeMsg(spark, 'Welcome! Finding other player ...');
     } else {
       // unexpired session connecting again
       // going to check if former partner is still there
-      writeMsg(spark, 'Willkommen zurück! Versuche letzen Mitspieler zu finden, ggf. "Neuer Partner" klicken');
+      writeMsg(spark, 'Welcome back! Trying to find previous other player, click "New Game" if taking too long.');
     }
 
     // try to find a partner and set up game
@@ -712,13 +712,13 @@ module.exports = (options) => {
       // it's a match
       const partner = getPartner(requesterSid, gameState);
       const requester = gameState[requesterSid];
-      writeMsg(requester.spark, 'Mitspieler gefunden.');
-      writeMsg(partner.spark, 'Mitspieler gefunden.');
+      writeMsg(requester.spark, 'Found other player.');
+      writeMsg(partner.spark, 'Found other player.');
       // initialize clients
       broadcastTurn(gameState, requester, partner);
     } else {
       // no partner found yet
-      writeMsg(spark, 'Warten auf Mitspieler...');
+      writeMsg(spark, 'Waiting for other player...');
     }
 
     // ====================================================== handler incoming requests
@@ -745,9 +745,9 @@ module.exports = (options) => {
           const jSession = JSON.parse(syncSession(reqSid, sessionStore));
           gameStates.del(jSession.pairedWith);
           resetSessionToUnpaired(reqSid, sessionStore);
-          writeMsg(spark, 'Spiel wurde verlassen.');
+          writeMsg(spark, 'Game has been left.');
         } else {
-          writeMsg(spark, 'Mitspieler nicht erreichbar, warten oder "Neuer Partner" klicken');
+          writeMsg(spark, 'Can\'t reach other player, wait or click "New Game"');
         }
       } else if (state === 'reset') {
         // handled in checkPartnerGetState(), mentioned here to cover all possible return values
@@ -761,10 +761,10 @@ module.exports = (options) => {
           resetSessionToUnpaired(requester.sessionId, sessionStore);
           writeMsg(spark, 'Spiel wurde verlassen.');
           spark.end();
-          writeMsg(partner.spark, 'Mitspieler hat das Spiel verlassen, ggf. "Neuer Partner" klicken');
+          writeMsg(partner.spark, 'Other player has left the game, click "New Game"');
         }
         if (state.isEnded) {
-          writeMsg(spark, 'Spiel beendet. Unten klicken für neues oder anderes Spiel.');
+          writeMsg(spark, 'Game ended. Click below for new or other game.');
           return;
         }
         // here we evaluate the type of message

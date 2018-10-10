@@ -6,7 +6,7 @@ router.get('/', (req, res) => {
   if (req.session.pairedWith) {
     res.render('large', {
       title: 'Textgame Level 4',
-      intro: 'Viel Erfolg.',
+      intro: 'Good luck.',
     });
   } else {
     res.redirect('/login');

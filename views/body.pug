@@ -10,7 +10,7 @@ block content
 
 			div#drawing
 
-			div#footer Bilddaten: Chaladze, G., Kalatozishvili, L. (2017).  
+			div#footer Image Data: Chaladze, G., Kalatozishvili, L. (2017).  
 				a(href='http://chaladze.com/l5/') Linnaeus 5 Dataset 
 				| for Machine Learning.
 
@@ -20,42 +20,42 @@ block content
 				span#active 
 
 			div#status 
-				div Noch bis zu 
+				div Up to 
 					span#selects
-					|  in diesem Zug entfernen  
+					|  yet to remove in this turn  
 				div 
 					| A 
 					span#unqA
 					|  / B 
 					span#unqB 
-					|  Unterschiede übrig 
+					|  differences left 
 				div 
 					span#turncount 
-					|  Züge bisher 
+					|  turns taken
 			
 			div#chat
 				ul#messages
 			
 			div(class='inputsection')#write
 				input(type='text')#box
-				button#sendText Senden
+				button#sendText Send
 
 			div(class='inputsection')#extras
-				button#sendExtra Wählen: 
+				button#sendExtra Choose: 
 				input(type='checkbox', class='undo', name='extras', value='undo')#undo
 				input(type='checkbox', class='undo', name='extras', value='undo-partner', disabled ='true')#undo-partner
-				label(for='undo', class='undo') Rückgängig
+				label(for='undo', class='undo') Undo
 				input(type='checkbox', class='joker', name='extras', value='joker')#joker
 				input(type='checkbox', class='joker', name='extras', value='joker-partner', disabled ='true')#joker-partner
 				label(for='joker', class='joker') Joker
 
 			div(class='wideButton')
-				button#endTurn Zug beenden
+				button#endTurn End Turn
 
 			div(class='gameChoice') 
-				a#newPartner(href='javascript:') Neues Spiel
+				a#newPartner(href='javascript:') New Game
 
-			div(class='gameChoice') Anderes Level: 
+			div(class='gameChoice') Different Level: 
 				a(href='/level1') 1 
 				a(href='/level2') 2 
 				a(href='/level3') 3 

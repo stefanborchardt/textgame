@@ -6,10 +6,10 @@ router.get('/', (req, res) => {
   if (req.session.pairedWith) {
     res.render('easy', {
       title: 'Textgame Level 1',
-      intro: 'Sie und Ihr Mitspieler sehen die gleichen Bilder - fast. Finden Sie die Unterschiede,'
-        + ' indem Sie abwechselnd <strong>alle gleichen entfernen</strong>. Je weniger Züge, desto besser. Klicken Sie'
-        + ' auf <strong>Zug beenden</strong>, um sich abzuwechseln. Falls ein falsches Bild ausgewählt wurde,'
-        + ' können Sie im nächsten Zug <strong>zusätzliche entfernen</strong>. Ein Ergebnis von <strong>100 Punkten</strong> ist gut.',
+      intro: 'You and the other player see the same images - almost. Find the differences'
+        + ' by taking turns in <strong>removing all the shared images</strong>. Less turns are better. Click on'
+        + ' <strong>End Turn</strong> to take turns. In case you selected a unique image'
+        + ' you can <strong>remove extra images</strong> in the next turn. A result of <strong>100 points</strong> is good.',
     });
   } else {
     res.redirect('/login');

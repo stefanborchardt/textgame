@@ -220,7 +220,7 @@
         group.on('click', clickHandler);
       }
       show('endturn');
-      $('#active').text('Sie sind am Zug');
+      $('#active').text('Your turn');
       $('#playerturn').attr('class', 'ownTurn');
     }
     else {
@@ -229,7 +229,7 @@
         group.off('click', clickHandler);
       }
       hide('endturn');
-      $('#active').text('Ihr Mitspieler ist am Zug');
+      $('#active').text('Other player\'s turn');
       $('#playerturn').attr('class', 'partnerTurn');
     }
     // extra actions
@@ -290,16 +290,16 @@
       $('#extras').hide();
       $('#endTurn').hide();
       $('li').remove();
-      addMessage('MODERATOR: Spiel beendet. Das sind die unterschiedlichen Bilder.');
+      addMessage('MODERATOR: Game ended. These are the unique images.');
       addMessage(`MODERATOR: ${data.expl}`);
-      addMessage(`MODERATOR: Weiter im <a href="/level${NEXTLVL}">nächsten Level.</a>`);
-      $('#active').text(`Spielende. ${data.score} Punkte.`);
+      addMessage(`MODERATOR: Continue in <a href="/level${NEXTLVL}">next level</a>.`);
+      $('#active').text(`End of game. ${data.score} points.`);
       $('#playerturn').attr('class', 'ownTurn');
     } else if (data.turn !== undefined) {
       handleTurnData(data);
     } else if (data.typing !== undefined) {
       if ($('.partnerTyping').length === 0) {
-        addMessage(`${data.role}: tippt...`, 'partnerTyping');
+        addMessage(`${data.role}: typing...`, 'partnerTyping');
         setTimeout(() => {
           if ($('.partnerTyping').length > 0) {
             $('.partnerTyping').remove();
