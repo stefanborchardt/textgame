@@ -350,13 +350,13 @@ module.exports = (options) => {
       currentSelection: Array.from(state.currentSelection),
       [requester.role]: {
         board: Array.from(requester.board),
-        uniqueLeft: Array.from(state[state.playerA].unique)
-          .filter(val => state[state.playerA].board.has(val)),
+        uniqueLeft: Array.from(requester.unique)
+          .filter(val => requester.board.has(val)),
       },
       [partner.role]: {
         board: Array.from(partner.board),
-        uniqueLeftB: Array.from(state[state.playerB].unique)
-          .filter(val => state[state.playerB].board.has(val)),
+        uniqueLeft: Array.from(partner.unique)
+          .filter(val => partner.board.has(val)),
       },
       extras: state.extrasAvailable,
       name: state.name,
@@ -606,7 +606,9 @@ module.exports = (options) => {
     }
     partner.spark.write({ updExtras: true, extra });
     gameStates.set(state.id, stateToUpdate);
-    writeLog(state.id, getShortGameData(stateToUpdate, requester, partner));
+    // make a copy so that further changes to game state don't get logged now
+    const shortGData = Object.assign({}, getShortGameData(stateToUpdate, requester, partner));
+    writeLog(state.id, shortGData);
 
     // check for agreement
     if (stateToUpdate[partner.sessionId].extraSelected === '') {
@@ -759,7 +761,7 @@ module.exports = (options) => {
           writeLog(state.id, { resetBy: requester.role });
           gameStates.del(state.id);
           resetSessionToUnpaired(requester.sessionId, sessionStore);
-          writeMsg(spark, 'Spiel wurde verlassen.');
+          writeMsg(spark, 'Game has been left.');
           spark.end();
           writeMsg(partner.spark, 'Other player has left the game, click "New Game"');
         }
