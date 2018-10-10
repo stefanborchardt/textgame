@@ -2,11 +2,11 @@
 const g = require('./tgbase')({
   directory: 'tg',
   paramSetSize: 500,
-  paramNumCommon: 39,
-  paramNumUnique: 10,
+  paramNumCommon: 24,
+  paramNumUnique: 12,
   paramUndo: true,
   paramJoker: true,
-  paramSelections: 5,
+  paramSelections: 3,
   paramGameName: 'L5-test-5x100',
 });
 

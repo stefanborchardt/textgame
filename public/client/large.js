@@ -1,8 +1,8 @@
 (() => {
   const ANIMSPD = 100;
-  const GRIDDIM = 7;
-  const IMGSIZE = 13;
-  const MARGIN = 1;
+  const GRIDDIM = 6;
+  const IMGSIZE = 14;
+  const MARGIN = 2;
   const CLICKZOOM = 1.2;
   const HOVERZOOM = 2;
   const IMGDIR = 'g0';

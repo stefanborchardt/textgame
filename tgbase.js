@@ -570,13 +570,14 @@ module.exports = (options) => {
         ? commonLeftNow : paramSelections;
     }
 
-    // could be last turn, disable to simplify logic
-    if (jokerSize >= stateToUpdate.selectionsLeft) {
-      upExtrasAvail.joker = false;
-    } else if (paramJoker && !upExtrasAvail.jokerUsed) {
+    if (jokerSize < stateToUpdate.selectionsLeft
+      && paramJoker && !upExtrasAvail.jokerUsed) {
       upExtrasAvail.joker = true;
+    } else {
+      upExtrasAvail.joker = false;
     }
-    if (stateToUpdate.turnCount > 0 && paramUndo && !upExtrasAvail.undoUsed) {
+    if (stateToUpdate.turnCount > 0
+      && paramUndo && !upExtrasAvail.undoUsed) {
       upExtrasAvail.undo = true;
     }
     stateToUpdate.extrasAvailable = upExtrasAvail;
@@ -642,6 +643,14 @@ module.exports = (options) => {
       stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
         ? commonLeftNow : paramSelections;
       stateToUpdate.selectionsLeft -= state.currentSelection.size;
+
+      // check if joker is available again
+      if (paramJoker && !upExtrasAvail.jokerUsed
+        && jokerSize < stateToUpdate.selectionsLeft) {
+        upExtrasAvail.joker = true;
+      } else {
+        upExtrasAvail.joker = false;
+      }
     } else {
       // joker
       let removed = 0;
@@ -662,14 +671,8 @@ module.exports = (options) => {
       });
 
       stateToUpdate.selectionsLeft -= curSelRemoved;
-      upExtrasAvail.jokerUsed = true;
-    }
-
-    // could be last turn, disable to simplify logic
-    if (jokerSize >= stateToUpdate.selectionsLeft) {
       upExtrasAvail.joker = false;
-    } else if (paramJoker && !upExtrasAvail.jokerUsed) {
-      upExtrasAvail.joker = true;
+      upExtrasAvail.jokerUsed = true;
     }
 
     stateToUpdate.extrasAvailable = upExtrasAvail;
