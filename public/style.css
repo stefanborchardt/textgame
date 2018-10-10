@@ -9,16 +9,25 @@ body {
   /* align-items: center; */
 }
 
+#left {
+  width: 80vh;
+}
+
+#intro {
+  margin-right: 2vw;
+}
+
 #drawing {
   margin-right: 3vw;
-  width: 70vh;
+  width: 80vh;
+  height: 80vh;
   min-width: 500px;
   min-height: 500px;
 }
 
 #right {
-  width: 40vw;
-  min-width: 30vw;
+  width: 50vh;
+  min-width: 300px;
   margin-top: 5vh;
 }
 
@@ -106,5 +115,5 @@ li {
 }
 
 #copyright {
-  margin-top: 10vh;
+  margin-top: 15vh;
 }
