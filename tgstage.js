@@ -1,6 +1,6 @@
 // configure base game
 const options = {
-  directory: 'th',
+  directory: 'stage',
   paramSetSize: 75,
   paramNumCommon: 20,
   paramNumUnique: 5,

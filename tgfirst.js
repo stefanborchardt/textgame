@@ -1,6 +1,6 @@
 // configure base game
 const options = {
-  directory: 'te',
+  directory: 'first',
   paramSetSize: 30,
   paramNumCommon: 7,
   paramNumUnique: 2,

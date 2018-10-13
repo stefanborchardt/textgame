@@ -32,7 +32,7 @@ module.exports = (options) => {
     ),
     transports: [
       new winston.transports.File({
-        filename: `logs/${directory}/combined.log`,
+        filename: `logs/${directory}.log`,
       }),
     ],
   });
