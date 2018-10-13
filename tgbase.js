@@ -590,7 +590,7 @@ module.exports = (options) => {
     } else {
       upExtrasAvail.joker = false;
     }
-    if (stateToUpdate.turnCount > 0
+    if (stateToUpdate.previousSelection.size > 0
       && paramUndo && !upExtrasAvail.undoUsed) {
       upExtrasAvail.undo = true;
     }
@@ -611,13 +611,10 @@ module.exports = (options) => {
     const reqSelected = stateToUpdate[requester.sessionId];
     if (extra.undo && paramUndo && !state.extrasAvailable.undoUsed) {
       reqSelected.extraSelected = 'undo';
-      writeMsg(partner.spark, 'Other player chooses "Undo"');
     } else if (extra.joker && paramJoker && !state.extrasAvailable.jokerUsed) {
       reqSelected.extraSelected = 'joker';
-      writeMsg(partner.spark, 'Other player chooses "Joker"');
     } else {
       reqSelected.extraSelected = '';
-      writeMsg(partner.spark, 'Other player not choosing extra any longer.');
     }
     partner.spark.write({ updExtras: true, extra });
     gameStates.set(state.id, stateToUpdate);

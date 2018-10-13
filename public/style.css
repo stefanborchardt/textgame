@@ -4,35 +4,30 @@ body {
 
 #content {
   display: flex;
-  flex-direction: row;
-  width: 90vw;
-  /* align-items: center; */
+  align-items: center;
 }
 
 #left {
-  width: 80vh;
-}
-
-#intro {
-  margin-right: 2vw;
+  flex: 2;
+  max-width: 80vh;
+  min-width: 600px;
 }
 
 #drawing {
   margin-right: 3vw;
-  width: 80vh;
-  height: 80vh;
-  min-width: 500px;
-  min-height: 500px;
+}
+
+svg {
+  overflow: visible;
 }
 
 #right {
-  width: 50vh;
+  flex: 1;
+  max-width: 40vh;
   min-width: 300px;
-  margin-top: 5vh;
 }
 
 #playerturn, #active {
-  width: 100%;
   font-size: 120%
 }
 
@@ -47,49 +42,63 @@ body {
   background-color: #ffaaaa;
 }
 
+#status {
+  width: 100%;
+  font-size: 110%;
+}
+#status * #selects {
+  font-size: 170%;
+}
 #status * span {
   font-weight: bold;
-}
-
-#selects {
-  font-size: 150%;
+  font-size: 130%;
 }
 
 #chat {
   border: 1pt solid black;
-  height: 30vh;
+  height: 25vh;
   overflow-y: scroll;
   overflow-x: hidden;
   will-change: scroll-position;
   margin-bottom: 2vh;
 }
-
 ul {
   list-style: none;
   padding-inline-start: 1vw;
 }
-
 li {
   white-space: normal;
 }
 .ownMsg {
   color: #1a056b;
+  margin-left: 1vw;
 }
 .partnerMsg, .partnerTyping {
   color: #980000;
-  margin-left: 1vw;
 }
 
 .inputsection {
   margin-bottom: 2vh;
-  display: flex;
-  flex-direction: row;
-  width: 100%;
 }
 
-.inputsection > button {
+#write, #control {
   display: flex;
-  flex-direction: row;
+}
+
+#turnButton {
+  align-self: center;
+}
+
+/* #endTurn, #sendText {
+  background-color: #88cc88;
+  border-top-color: #b4e0b4;
+  border-left-color: #b4e0b4;
+  border-bottom-color: #58ac58;
+  border-right-color: #58ac58;
+} */
+
+#endTurn {
+  font-size: 110%;
 }
 
 #write > input {
@@ -97,23 +106,43 @@ li {
   width: 100%;
 }
 
+#extras {
+  font-size: 110%;
+}
 #extras > input {
   margin-right: 0.5vw;
+  margin-left: 1vw;
+} 
+#extras > label {
+  margin-left: 1vw;
 } 
 
-#extras > label, #sendExtra {
-  margin-right: 1.5vw;
-} 
-
-.wideButton, #status {
+.gameChoice {
   margin-bottom: 2vh;
-  width: 100%;
 }
 
-.wideButton > button {
-  width: 100%;
+#copyright, #footer {
+  font-size: 80%;
 }
 
-#copyright {
-  margin-top: 15vh;
+.glow {
+  animation-duration: 0.12s;
+  animation-name: glow;
+  animation-iteration-count: 2;
+  animation-direction: alternate;
+}
+@keyframes glow {
+  from { box-shadow: none; }
+  to { box-shadow: 0 0 1vh #2d882d; }
+}
+
+.warn {
+  animation-duration: 0.12s;
+  animation-name: warn;
+  animation-iteration-count: 2;
+  animation-direction: alternate;
+}
+@keyframes warn {
+  from { box-shadow: none; }
+  to { box-shadow: 0 0 1vh #ad3c3c; }
 }

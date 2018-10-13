@@ -21,15 +21,29 @@
     return true;
   };
 
+  // lets an element glow using css animation
+  const glow = (selector) => {
+    $(selector).addClass('glow');
+    // we could listen for 'animationend' to remove the class,
+    // but then we would have to remove the listener afterwards
+    setTimeout(() => {
+      $(selector).removeClass('glow');
+    }, 150);
+  };
+ 
+  const warn = (selector) => {
+    $(selector).addClass('warn');
+    setTimeout(() => {
+      $(selector).removeClass('warn');
+    }, 150);
+  };
+
   // ######################## initially hide control elements
 
-  const hide = elemId => $(`#${elemId}`).css({ visibility: 'hidden' });
-  const show = elemId => $(`#${elemId}`).css({ visibility: 'visible' });
-
-  hide('endTurn');
-  hide('extras');
-  hide('write');
-  hide('status');
+  $('#endTurn').hide();
+  $('#extras').hide();
+  $('#write').hide();
+  $('#status').hide();
 
   // ########################  SVG
 
@@ -107,6 +121,8 @@
     });
   }
 
+  // ##################### OUTGOING Clicks
+
   function clickHandler(event) {
     const grp = getGroup(event);
     const rect = grp.select('rect');
@@ -129,7 +145,6 @@
       id: grp.id().substring(3),
       selected,
     }));
-    $('#box').focus();
   }
 
   // ################  OUTGOING  Chat
@@ -177,10 +192,14 @@
     primus.write(JSON.stringify({ endturn: true }));
   });
 
-  $('#sendExtra').on('click', () => {
+  $('#undo').on('change', () => {
     const undo = $('#undo').prop('checked');
+    primus.write(JSON.stringify({ act: 'extra', extra: { undo } }));
+  });
+
+  $('#joker').on('change', () => {
     const joker = $('#joker').prop('checked');
-    primus.write(JSON.stringify({ act: 'extra', extra: { undo, joker } }));
+    primus.write(JSON.stringify({ act: 'extra', extra: { joker } }));
   });
 
   $('#newPartner').on('click', () => {
@@ -198,9 +217,9 @@
     const imageIds = data.board;
     if (boardImages.size === 0) {
       // game state at begin of turn
-      show('endTurn');
-      show('write');
-      show('status');
+      $('#endTurn').show();
+      $('#write').show();
+      $('#status').show();
       // first time drawing
       for (let i = 0; i < imageIds.length; i += 1) {
         const imgId = imageIds[i];
@@ -219,7 +238,7 @@
         group.off('click', clickHandler);
         group.on('click', clickHandler);
       }
-      show('endTurn');
+      $('#endTurn').show();
       $('#active').text('Your turn');
       $('#playerturn').attr('class', 'ownTurn');
     }
@@ -228,32 +247,36 @@
         const group = SVG.get(`img${imageIds[i]}`);
         group.off('click', clickHandler);
       }
-      hide('endTurn');
-      $('#active').text('Other player\'s turn');
+      $('#endTurn').hide();
+      $('#active').text('Teammate\'s turn');
       $('#playerturn').attr('class', 'partnerTurn');
     }
     // extra actions
     $('.undo').hide();
     $('.joker').hide();
-    hide('extras');
+    $('#extras').hide();
     $('#undo').prop('checked', false);
     $('#undo-partner').prop('checked', false);
     $('#joker').prop('checked', false);
     $('#joker-partner').prop('checked', false);
     if (data.extra.undo) {
       $('.undo').show();
-      show('extras');
+      $('#extras').show();
+      glow('.undo');
     }
     if (data.extra.joker) {
       $('.joker').show();
-      show('extras');
+      $('#extras').show();
+      glow('.joker');
     }
     // status info
     $('#turncount').text(data.turnCount);
     $('#selects').text(data.selectionsLeft);
     $('#unqA').text(data.uniqueLeftA);
     $('#unqB').text(data.uniqueLeftB);
-    $('#box').focus();
+    glow('#box');
+    glow('#selects');
+    warn('#turncount');
   }
 
   // ===========================================
@@ -274,14 +297,29 @@
       addMessage(`${data.role}: ${data.txt}`, className);
     } else if (data.msg !== undefined) {
       // message from game
-      addMessage(`MODERATOR: ${data.msg}`);
+      addMessage(`HOST: ${data.msg}`);
     } else if (data.updSelLeft !== undefined) {
       // update selections
       $('#selects').text(data.updSelLeft);
+      if (data.updSelLeft === 0) {
+        glow('#endTurn');
+      } else if (data.updSelLeft < 0) {
+        warn('#selects');
+      }
     } else if (data.updExtras !== undefined) {
       // update partner extra selects
       $('#undo-partner').prop('checked', data.extra.undo);
+      if (data.extra.undo) {
+        glow('#undo-partner');
+      } else {
+        warn('#undo-partner');
+      }
       $('#joker-partner').prop('checked', data.extra.joker);
+      if (data.extra.joker) {
+        glow('#joker-partner');
+      } else {
+        warn('#joker-partner');
+      }
     } else if (data.ended !== undefined) {
       // TODO
       updateImages(data.board);
@@ -290,9 +328,9 @@
       $('#extras').hide();
       $('#endTurn').hide();
       $('li').remove();
-      addMessage('MODERATOR: Game ended. These are the unique images.');
-      addMessage(`MODERATOR: ${data.expl}`);
-      addMessage(`MODERATOR: Continue in <a href="/level${NEXTLVL}">next level</a>.`);
+      addMessage('HOST: Game ended. These are the unique images.');
+      addMessage(`HOST: ${data.expl}`);
+      addMessage(`HOST: Continue in <a href="/level${NEXTLVL}">next level</a>.`);
       $('#active').text(`End of game. ${data.score} points.`);
       $('#playerturn').attr('class', 'ownTurn');
     } else if (data.turn !== undefined) {
@@ -307,5 +345,6 @@
         }, 3000);
       }
     }
+    $('#box').focus();
   });
 }).call(this);

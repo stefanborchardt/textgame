@@ -3,64 +3,60 @@ block content
 	div#content
 
 		div#left
-
 			h1= title
-			
-			div#intro !{intro}
 
 			div#drawing
 
-			div#footer Image Data: Chaladze, G., Kalatozishvili, L. (2017).  
-				a(href='http://chaladze.com/l5/') Linnaeus 5 Dataset 
-				| for Machine Learning.
-
 		div#right
 
-			div#playerturn
-				span#active 
+			h1 #{game}
 
-			div#status 
-				div Up to 
-					span#selects
-					|  yet to remove in this turn  
-				div 
-					| A 
-					span#unqA
-					|  / B 
-					span#unqB 
-					|  differences left 
-				div 
-					span#turncount 
-					|  turns taken
-			
 			div#chat
 				ul#messages
 			
-			div(class='inputsection')#write
-				input(type='text')#box
+			div#write(class='inputsection')
+				input#box(type='text')
 				button#sendText Send
 
-			div(class='inputsection')#extras
-				button#sendExtra Choose: 
-				input(type='checkbox', class='undo', name='extras', value='undo')#undo
-				input(type='checkbox', class='undo', name='extras', value='undo-partner', disabled ='true')#undo-partner
-				label(for='undo', class='undo') Undo
-				input(type='checkbox', class='joker', name='extras', value='joker')#joker
-				input(type='checkbox', class='joker', name='extras', value='joker-partner', disabled ='true')#joker-partner
-				label(for='joker', class='joker') Joker
+			div#playerturn(class='inputsection')
+				span#active 
 
-			div(class='wideButton')
-				button#endTurn End Turn
+			div#control(class='inputsection')
+				div#status 
+					div Up to 
+						span#selects
+						|  yet to remove 
+					div 
+						| A 
+						span#unqA
+						|  / B 
+						span#unqB 
+						|  differences left 
+					div 
+						span#turncount 
+						|  turns taken
+
+				div#turnButton
+					button#endTurn End Turn
+			
+
+			div#extras(class='inputsection') Extras: 
+				//- button#sendExtra 
+				input#undo(type='checkbox', class='undo', name='extras', value='undo')
+				input#undo-partner(type='checkbox', class='undo', name='extras', value='undo-partner', disabled='true')
+				label(for='undo', class='undo')  Undo
+				input#joker(type='checkbox', class='joker', name='extras', value='joker')
+				input#joker-partner(type='checkbox', class='joker', name='extras', value='joker-partner', disabled='true')
+				label(for='joker', class='joker')  Joker
 
 			div(class='gameChoice') 
 				a#newPartner(href='javascript:') New Game
 
-			div(class='gameChoice') Different Level: 
-				a(href='/level1') 1 
-				a(href='/level2') 2 
-				a(href='/stage') 3 
-
 			div#copyright Copyright 2018 
 				a(href='https://github.com/stefanborchardt/textgame') Stefan Borchardt 
+
+			div#footer Image Data: Chaladze, G., Kalatozishvili, L. (2017).  
+				a(href='http://chaladze.com/l5/') Linnaeus 5 Dataset 
+				| for Machine Learning.
 
 			

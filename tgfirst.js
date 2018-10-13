@@ -4,7 +4,7 @@ const options = {
   paramSetSize: 30,
   paramNumCommon: 7,
   paramNumUnique: 2,
-  paramUndo: false,
+  paramUndo: true,
   paramJoker: false,
   paramSelections: 3,
   paramGameName: 'L5-test-other30',
