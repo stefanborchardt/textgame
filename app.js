@@ -24,7 +24,7 @@ const options = {
 const server = https.createServer(options, app);
 
 
-// view engine setup
+// further app configuration setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
 app.set('port', config.get('https.port'));
@@ -88,6 +88,7 @@ primusStage.on('connection', stageSocket);
 // primusStage.save('public/external/primusstage.js');
 
 // ################## middleware for resetting player's game participation
+
 // refresh or entering or clicking an url will leave the current game
 // maybe deactivate for developemt
 const resetGame = (req, res, next) => {
@@ -101,8 +102,10 @@ const firstRouter = require('./routes/first');
 const secondRouter = require('./routes/second');
 const stageRouter = require('./routes/stage');
 const loginRouter = require('./routes/login');
+const introRouter = require('./routes/intro');
 
 app.use('/', loginRouter);
+app.use('/intro', introRouter);
 app.use('/level1', firstRouter);
 app.use('/level2', secondRouter);
 app.use('/stage', stageRouter);
@@ -115,11 +118,10 @@ app.post('/login', (req, res) => {
     pwd = pwd.toString(10);
   }
   if (pwd === req.body.password) {
-    req.session.gameStateId = 'NOGAME';
-    req.session.lastGame = 'NOGAME';
+    // also see syncSession() in module tgbase
     req.session.loggedIn = true;
     // first page after login
-    res.redirect('/level1');
+    res.redirect('/intro');
   } else {
     res.redirect('/');
   }

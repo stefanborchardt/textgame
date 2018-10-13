@@ -77,6 +77,8 @@ module.exports = (options) => {
         sameSite: 'strict',
       },
       gameStateId: 'NOGAME',
+      firstPlayed: false, // after server restart player continues in first game
+      introSeen: true,
       loggedIn: true, // not really protecting anything
     }), maxAge);
     return JSON.parse(sStore.get(sessionId));

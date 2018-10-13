@@ -1,10 +1,10 @@
 (() => {
-  const ANIMSPD = 100;
-  const GRIDDIM = 3;
-  const IMGSIZE = 25;
-  const MARGIN = 6;
-  const CLICKZOOM = 1.1;
-  const HOVERZOOM = 1.6;
+  const ANIMSPD = 120;
+  const GRIDDIM = 4;
+  const IMGSIZE = 20;
+  const MARGIN = 4;
+  const CLICKZOOM = 1.2;
+  const HOVERZOOM = 1.8;
   const IMGDIR = 'g2';
   const NEXTLVL = 3;
 
@@ -219,7 +219,7 @@
         group.off('click', clickHandler);
         group.on('click', clickHandler);
       }
-      show('endturn');
+      show('endTurn');
       $('#active').text('Your turn');
       $('#playerturn').attr('class', 'ownTurn');
     }
@@ -228,7 +228,7 @@
         const group = SVG.get(`img${imageIds[i]}`);
         group.off('click', clickHandler);
       }
-      hide('endturn');
+      hide('endTurn');
       $('#active').text('Other player\'s turn');
       $('#playerturn').attr('class', 'partnerTurn');
     }

@@ -4,7 +4,7 @@ const router = express.Router();
 
 router.get('/', (req, res) => {
   if (req.session.loggedIn) {
-    if (req.session.lastGame === 'NOGAME') {
+    if (!req.session.firstPlayed) {
       // first game for player in this session
       res.render('first', {
         title: 'Textgame Level 1',
