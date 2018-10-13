@@ -54,38 +54,38 @@ app.use(session({
 
 // ###################### websockets
 
-const primusEasy = new Primus(server, {
+const primusFirst = new Primus(server, {
   transformer: 'websockets',
   pathname: '/te',
   parser: 'json',
 });
 
-const easySocket = require('./tgeasy')(sessionStore.store);
+const firstSocket = require('./tgfirst')(sessionStore.store);
 // this way sessionStore is available to tgSocket
 // so that websocket and http sessions can be matched
-primusEasy.on('connection', easySocket);
+primusFirst.on('connection', firstSocket);
 // enable once for client JS creation:
-// primusEasy.save('public/external/primuseasy.js');
+// primusFirst.save('public/external/primusfirst.js');
 
-const primusMedium = new Primus(server, {
+const primusSecond = new Primus(server, {
   transformer: 'websockets',
   pathname: '/tm',
   parser: 'json',
 });
-const mediumSocket = require('./tgmedium')(sessionStore.store);
+const secondSocket = require('./tgsecond')(sessionStore.store);
 
-primusMedium.on('connection', mediumSocket);
-// primusMedium.save('public/external/primusmedium.js');
+primusSecond.on('connection', secondSocket);
+// primusSecond.save('public/external/primussecond.js');
 
-const primusThree = new Primus(server, {
+const primusStage = new Primus(server, {
   transformer: 'websockets',
   pathname: '/th',
   parser: 'json',
 });
-const threeSocket = require('./tgthree')(sessionStore.store);
+const stageSocket = require('./tgstage')(sessionStore.store);
 
-primusThree.on('connection', threeSocket);
-// primusThree.save('public/external/primusthree.js');
+primusStage.on('connection', stageSocket);
+// primusStage.save('public/external/primusstage.js');
 
 // ################## middleware for resetting player's game participation
 // refresh or entering or clicking an url will leave the current game
@@ -97,15 +97,15 @@ const resetGame = (req, res, next) => {
 app.use('/', resetGame);
 
 // ##################  routers for https connections
-const easyRouter = require('./routes/easy');
-const mediumRouter = require('./routes/medium');
-const threeRouter = require('./routes/three');
+const firstRouter = require('./routes/first');
+const secondRouter = require('./routes/second');
+const stageRouter = require('./routes/stage');
 const loginRouter = require('./routes/login');
 
 app.use('/', loginRouter);
-app.use('/level1', easyRouter);
-app.use('/level2', mediumRouter);
-app.use('/stage', threeRouter);
+app.use('/level1', firstRouter);
+app.use('/level2', secondRouter);
+app.use('/stage', stageRouter);
 
 // when a game router detects an unauthenticated user it redirects
 // to the login (=root) page. after sending the login form, we do a basic authentication here

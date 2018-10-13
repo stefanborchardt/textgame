@@ -6,7 +6,7 @@ router.get('/', (req, res) => {
   if (req.session.loggedIn) {
     if (req.session.lastGame !== 'NOGAME') {
       // some game has been played before
-      res.render('medium', {
+      res.render('second', {
         title: 'Textgame Level 2',
         intro: 'This time you can <strong>undo the last turn</strong>,'
           + ' if the other player <strong>chooses</strong> it, too.'

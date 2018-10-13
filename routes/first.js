@@ -6,7 +6,7 @@ router.get('/', (req, res) => {
   if (req.session.loggedIn) {
     if (req.session.lastGame === 'NOGAME') {
       // first game for player in this session
-      res.render('easy', {
+      res.render('first', {
         title: 'Textgame Level 1',
         intro: 'You and the other player see the same images - almost. Find the differences'
           + ' by taking turns in <strong>removing all the shared images</strong>. Less turns are better. Click on'
