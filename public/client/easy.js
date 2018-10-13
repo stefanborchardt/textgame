@@ -219,7 +219,7 @@
         group.off('click', clickHandler);
         group.on('click', clickHandler);
       }
-      show('endturn');
+      show('endTurn');
       $('#active').text('Your turn');
       $('#playerturn').attr('class', 'ownTurn');
     }
@@ -228,7 +228,7 @@
         const group = SVG.get(`img${imageIds[i]}`);
         group.off('click', clickHandler);
       }
-      hide('endturn');
+      hide('endTurn');
       $('#active').text('Other player\'s turn');
       $('#playerturn').attr('class', 'partnerTurn');
     }

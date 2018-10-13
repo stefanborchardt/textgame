@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 
 router.get('/', (req, res) => {
-  if (req.session.pairedWith) {
+  if (req.session.loggedIn) {
     res.render('three', {
       title: 'Textgame Level 3',
       intro: 'This time more images both you and the other player see have to be removed.'
@@ -11,7 +11,7 @@ router.get('/', (req, res) => {
         + ' which removes two shared images. But only before the last turn.',
     });
   } else {
-    res.redirect('/login');
+    res.redirect('/');
   }
 });
 

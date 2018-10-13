@@ -54,19 +54,6 @@ app.use(session({
 
 // ###################### websockets
 
-const primusLarge = new Primus(server, {
-  transformer: 'websockets',
-  pathname: '/tg',
-  parser: 'json',
-});
-
-const largeSocket = require('./tglarge')(sessionStore.store);
-// this way sessionStore is available to tgSocket
-// so that websocket and http sessions can be matched
-primusLarge.on('connection', largeSocket);
-// enable once for client JS creation
-// primusLarge.save('public/external/primuslarge.js');
-
 const primusEasy = new Primus(server, {
   transformer: 'websockets',
   pathname: '/te',
@@ -74,9 +61,10 @@ const primusEasy = new Primus(server, {
 });
 
 const easySocket = require('./tgeasy')(sessionStore.store);
-
+// this way sessionStore is available to tgSocket
+// so that websocket and http sessions can be matched
 primusEasy.on('connection', easySocket);
-// enable once for client JS creation
+// enable once for client JS creation:
 // primusEasy.save('public/external/primuseasy.js');
 
 const primusMedium = new Primus(server, {
@@ -89,7 +77,6 @@ const mediumSocket = require('./tgmedium')(sessionStore.store);
 primusMedium.on('connection', mediumSocket);
 // primusMedium.save('public/external/primusmedium.js');
 
-
 const primusThree = new Primus(server, {
   transformer: 'websockets',
   pathname: '/th',
@@ -100,36 +87,45 @@ const threeSocket = require('./tgthree')(sessionStore.store);
 primusThree.on('connection', threeSocket);
 // primusThree.save('public/external/primusthree.js');
 
+// ################## middleware for resetting player's game participation
+// refresh or entering or clicking an url will leave the current game
+// maybe deactivate for developemt
+const resetGame = (req, res, next) => {
+  req.session.gameStateId = 'NOGAME';
+  next();
+};
+app.use('/', resetGame);
+
 // ##################  routers for https connections
-const indexRouter = require('./routes/large');
 const easyRouter = require('./routes/easy');
 const mediumRouter = require('./routes/medium');
 const threeRouter = require('./routes/three');
 const loginRouter = require('./routes/login');
 
 app.use('/', loginRouter);
-app.use('/login', loginRouter);
 app.use('/level1', easyRouter);
 app.use('/level2', mediumRouter);
-app.use('/level3', threeRouter);
-app.use('/level4', indexRouter);
+app.use('/stage', threeRouter);
 
-// when the index router detects an unauthenticated user it redirects
-// to the login page. after sending the login form, we do a basic authentication here
+// when a game router detects an unauthenticated user it redirects
+// to the login (=root) page. after sending the login form, we do a basic authentication here
 app.post('/login', (req, res) => {
   let pwd = config.get('login.password');
   if (typeof pwd === 'number') {
     pwd = pwd.toString(10);
   }
   if (pwd === req.body.password) {
-    req.session.pairedWith = 'noone';
+    req.session.gameStateId = 'NOGAME';
+    req.session.lastGame = 'NOGAME';
+    req.session.loggedIn = true;
     // first page after login
     res.redirect('/level1');
   } else {
-    res.redirect('/login');
+    res.redirect('/');
   }
 });
 
+// ################## error handlers
 // no router found, 404 and forward to error handler
 app.use((_req, res) => {
   res.sendStatus(404);
