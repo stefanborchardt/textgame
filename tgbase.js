@@ -687,7 +687,7 @@ module.exports = (options) => {
         }
       });
 
-      stateToUpdate.selectionsLeft -= curSelRemoved;
+      stateToUpdate.selectionsLeft += curSelRemoved;
       upExtrasAvail.joker = false;
       upExtrasAvail.jokerUsed = true;
     }
