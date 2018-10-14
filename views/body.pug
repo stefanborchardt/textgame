@@ -27,10 +27,10 @@ block content
 						span#selects
 						|  yet to remove 
 					div 
-						| A 
-						span#unqA
-						|  / B 
-						span#unqB 
+						| You 
+						span#unqPlayer
+						|  Mate 
+						span#unqPartner 
 						|  differences left 
 					div 
 						span#turncount 
@@ -48,6 +48,9 @@ block content
 				input#joker(type='checkbox', class='joker', name='extras', value='joker')
 				input#joker-partner(type='checkbox', class='joker', name='extras', value='joker-partner', disabled='true')
 				label(for='joker', class='joker')  Joker
+
+			div#next
+				a.nextlink(href='javascript:') Next Game
 
 			div(class='gameChoice') 
 				a#newPartner(href='javascript:') New Game

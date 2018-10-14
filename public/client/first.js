@@ -1,12 +1,11 @@
 (() => {
   const ANIMSPD = 150;
-  const GRIDDIM = 3;
-  const IMGSIZE = 25;
-  const MARGIN = 6;
+  const GRIDDIM = 4;
+  const IMGSIZE = 20;
+  const MARGIN = 4;
   const CLICKZOOM = 1.1;
   const HOVERZOOM = 1.6;
-  const IMGDIR = 'g1';
-  const NEXTLVL = 2;
+  const IMGDIR = 'g2';
 
   const primus = Primus.connect(`${location.origin}`);
 
@@ -22,20 +21,20 @@
   };
 
   // lets an element glow using css animation
-  const glow = (selector) => {
-    $(selector).addClass('glow');
+  const animate = (selector, style) => {
+    $(selector).addClass(style);
     // we could listen for 'animationend' to remove the class,
     // but then we would have to remove the listener afterwards
     setTimeout(() => {
-      $(selector).removeClass('glow');
+      $(selector).removeClass(style);
     }, 150);
   };
- 
+
+  const glow = (selector) => {
+    animate(selector, 'glow');
+  };
   const warn = (selector) => {
-    $(selector).addClass('warn');
-    setTimeout(() => {
-      $(selector).removeClass('warn');
-    }, 150);
+    animate(selector, 'warn');
   };
 
   // ######################## initially hide control elements
@@ -44,6 +43,7 @@
   $('#extras').hide();
   $('#write').hide();
   $('#status').hide();
+  $('#next').hide();
 
   // ########################  SVG
 
@@ -240,7 +240,7 @@
       }
       $('#endTurn').show();
       $('#active').text('Your turn');
-      $('#playerturn').attr('class', 'ownTurn');
+      $('#playerturn').prop('class', 'ownTurn');
     }
     else {
       for (let i = 0; i < imageIds.length; i += 1) {
@@ -249,7 +249,7 @@
       }
       $('#endTurn').hide();
       $('#active').text('Teammate\'s turn');
-      $('#playerturn').attr('class', 'partnerTurn');
+      $('#playerturn').prop('class', 'partnerTurn');
     }
     // extra actions
     $('.undo').hide();
@@ -272,9 +272,14 @@
     // status info
     $('#turncount').text(data.turnCount);
     $('#selects').text(data.selectionsLeft);
-    $('#unqA').text(data.uniqueLeftA);
-    $('#unqB').text(data.uniqueLeftB);
-    glow('#box');
+    $('#unqPlayer').text(data.playerUniqLeft);
+    if (data.playerUniqDown) {
+      warn('#unqPlayer');
+    }
+    $('#unqPartner').text(data.partnerUniqLeft);
+    if (data.partnerUniqDown) {
+      warn('#unqPartner');
+    }
     glow('#selects');
     warn('#turncount');
   }
@@ -330,9 +335,11 @@
       $('li').remove();
       addMessage('HOST: Game ended. These are the unique images.');
       addMessage(`HOST: ${data.expl}`);
-      addMessage(`HOST: Continue in <a href="/level${NEXTLVL}">next level</a>.`);
+      addMessage('HOST: Continue in <a href="/level1/done">level 2</a>.');
       $('#active').text(`End of game. ${data.score} points.`);
-      $('#playerturn').attr('class', 'ownTurn');
+      $('#playerturn').prop('class', 'ownTurn');
+      $('.nextlink').prop('href', '/level1/done');
+      $('#next').show();
     } else if (data.turn !== undefined) {
       handleTurnData(data);
     } else if (data.typing !== undefined) {

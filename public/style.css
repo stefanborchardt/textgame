@@ -132,8 +132,14 @@ li {
   animation-direction: alternate;
 }
 @keyframes glow {
-  from { box-shadow: none; }
-  to { box-shadow: 0 0 1vh #2d882d; }
+  from {
+    box-shadow: none;
+    background-color: none;
+  }
+  to {
+    box-shadow: 0 0 1vh #2d882d;
+    background-color: #88cc88;
+  }
 }
 
 .warn {
@@ -143,6 +149,43 @@ li {
   animation-direction: alternate;
 }
 @keyframes warn {
-  from { box-shadow: none; }
-  to { box-shadow: 0 0 1vh #ad3c3c; }
+  from {
+    box-shadow: none;
+    background-color: none;
+  }
+  to {
+    box-shadow: 0 0 1vh #d76e6e;
+    background-color: #ffaaaa;
+  }
+}
+
+.screenshot {
+  width: 30vw;
+  min-width: 350px;
+  margin-right: 10vw;
+}
+#screens {
+  display: flex;
+  margin-top: 2vh;
+  font-size: 130%
+}
+.w50 {
+  width: 50vw;
+  margin-bottom: 1vh;
+  font-size: 110%;
+}
+.ok {
+  font-weight: 900;
+  font-size: 250%;
+  margin-left: 10vw;
+  vertical-align: text-top;
+}
+
+#next {
+  text-align: right;
+  margin-bottom: 4vh;
+}
+.nextlink {
+  font-weight: 900;
+  font-size: 250%;
 }

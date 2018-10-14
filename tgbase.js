@@ -42,7 +42,7 @@ module.exports = (options) => {
    * Entries of the list hold information as in findPartnerCheckConnection().
    * Cache has infinite size, pruned regularly */
   const gameStates = cache({ maxAge });
-  setInterval(() => { gameStates.prune(); }, 2 * maxAge);
+  setInterval(() => { gameStates.prune(); }, 1.1 * maxAge);
 
   // ============================================= session and connection
 
@@ -170,7 +170,7 @@ module.exports = (options) => {
   const findPartnerCheckConnection = (spk, reqSid, jRequester, sStore) => {
     let gameState = null;
     let newOrExist = null;
-    const gameStateId = jRequester.gameStateId;
+    const { gameStateId } = jRequester;
     // iterate sessions
     sStore.rforEach((session, sessId) => {
       if (gameState == null) {
@@ -282,7 +282,7 @@ module.exports = (options) => {
   const checkPartnerGetState = (sprk, reqSid, sStore) => {
     const jSession = syncSession(reqSid, sStore);
 
-    const gameStateId = jSession.gameStateId;
+    const { gameStateId } = jSession;
     if (gameStateId === 'NOGAME' || gameStateId == null) {
       logger.info('session not paired');
       return { state: 'NOGAME' };
@@ -420,9 +420,9 @@ module.exports = (options) => {
   // ====================================================== turns
 
   /** @returns the number of unique images that the player has left */
-  const getUniqueLeft = (state, player) => (
-    Array.from(state[player].unique)
-      .filter(val => state[player].board.has(val)).length
+  const getUniqueLeft = (state, playerSid) => (
+    Array.from(state[playerSid].unique)
+      .filter(val => state[playerSid].board.has(val)).length
   );
 
   /** @returns the number of shared images that the players have left */
@@ -443,8 +443,12 @@ module.exports = (options) => {
         undo: state.extrasAvailable.undo,
         joker: state.extrasAvailable.joker,
       },
-      uniqueLeftA: getUniqueLeft(state, state.playerA),
-      uniqueLeftB: getUniqueLeft(state, state.playerB),
+      playerUniqLeft: getUniqueLeft(state, player.sessionId),
+      playerUniqDown: Array.from(state.previousSelection)
+        .filter(val => player.unique.has(val)).length > 0,
+      partnerUniqLeft: getUniqueLeft(state, player.partnerSid),
+      partnerUniqDown: Array.from(state.previousSelection)
+        .filter(val => state[player.partnerSid].unique.has(val)).length > 0,
     }
   );
 
@@ -593,6 +597,8 @@ module.exports = (options) => {
     if (stateToUpdate.previousSelection.size > 0
       && paramUndo && !upExtrasAvail.undoUsed) {
       upExtrasAvail.undo = true;
+    } else {
+      upExtrasAvail.undo = false;
     }
     stateToUpdate.extrasAvailable = upExtrasAvail;
 

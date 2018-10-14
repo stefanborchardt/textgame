@@ -2,12 +2,12 @@
 const options = {
   directory: 'first',
   paramSetSize: 30,
-  paramNumCommon: 7,
-  paramNumUnique: 2,
+  paramNumCommon: 13,
+  paramNumUnique: 3,
   paramUndo: true,
   paramJoker: false,
   paramSelections: 3,
-  paramGameName: 'L5-test-other30',
+  paramGameName: 'L5-train-flowers30',
 };
 
 const g = require('./tgbase')(options);

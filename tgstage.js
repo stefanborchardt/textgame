@@ -1,13 +1,13 @@
 // configure base game
 const options = {
   directory: 'stage',
-  paramSetSize: 75,
-  paramNumCommon: 20,
-  paramNumUnique: 5,
+  paramSetSize: 300,
+  paramNumCommon: 19,
+  paramNumUnique: 6,
   paramUndo: true,
   paramJoker: true,
-  paramSelections: 4,
-  paramGameName: 'L5-train-3x25',
+  paramSelections: 3,
+  paramGameName: 'L5-test-DogFlwrBrry300',
 };
 
 const g = require('./tgbase')(options);

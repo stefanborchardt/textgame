@@ -35,10 +35,10 @@ app.use(express.urlencoded({
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(helmet());
 
-// for authentication we use a session cookie with an TTL of 1 hour
+// for authentication we use a session cookie
 const maxAge = parseInt(config.get('cookie.maxage'), 10);
 const sessionStore = new MemoryStore({
-  checkPeriod: 2 * maxAge, // prune expired entries every 2h
+  checkPeriod: 1.1 * maxAge, // prune expired entries
 });
 app.use(session({
   resave: true, // websocket does not implement touch

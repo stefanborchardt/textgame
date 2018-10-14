@@ -7,5 +7,42 @@ html
 		//- Bootstrap
 		link(rel='stylesheet', href='/external/bootstrap-reboot.min.css')
 	body
-		h1= title
-		a(href='/intro/aye') OK
+
+		h2 Spot the Difference
+
+		div.w50 You and your teammate have to remove the images both of you share, so that all the different pictures are left. 
+			| Like below, only that you can't see the other player's images. 
+
+		div#screens
+			div 
+				div You see:
+				img.screenshot(src='/intro_act_player.jpg')
+			div 
+				div Teammate sees:
+				img.screenshot(src='/intro_inact_player.jpg')
+
+		div.w50 The 
+			strong chat 
+			| is always available, but you can only select images when it is your turn.
+			| You can select and unselect them, and they will be removed when you click 
+			strong End Turn
+			| . You find the number of pictures you can select below the chat.
+		
+		div.w50 The 
+			strong less turns 
+			| you take the 
+			strong more points 
+			| you get.
+
+		h2 Extras
+
+		div.w50 If you deleted a difference, you get more selections in the next turn. Some levels allow you to 
+			strong Undo 
+			| your last turn instead, if both of you agree. There might also be a 
+			strong Joker 
+			| available, which removes some of the shared images - but not in the last turn.
+
+		div.w50 Of course, bonus points are rewarded when you don't use the the extras.
+
+		div.w50 You can click New Game to start over, with another player.
+			a.ok(href='/intro/aye') Start Game
