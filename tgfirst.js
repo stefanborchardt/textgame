@@ -2,11 +2,11 @@
 const options = {
   directory: 'first',
   paramSetSize: 30,
-  paramNumCommon: 13,
-  paramNumUnique: 3,
+  paramNumCommon: 7,
+  paramNumUnique: 2,
   paramUndo: true,
   paramJoker: false,
-  paramSelections: 3,
+  paramSelections: 2,
   paramGameName: 'L5-train-flowers30',
 };
 

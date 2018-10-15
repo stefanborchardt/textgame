@@ -1,10 +1,10 @@
 (() => {
   const ANIMSPD = 150;
-  const GRIDDIM = 4;
-  const IMGSIZE = 20;
-  const MARGIN = 4;
+  const GRIDDIM = 3;
+  const IMGSIZE = 25;
+  const MARGIN = 6;
   const CLICKZOOM = 1.1;
-  const HOVERZOOM = 1.6;
+  const HOVERZOOM = 1.5;
   const IMGDIR = 'g2';
 
   const primus = Primus.connect(`${location.origin}`);
