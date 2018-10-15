@@ -5,7 +5,6 @@
   const MARGIN = 6;
   const CLICKZOOM = 1.1;
   const HOVERZOOM = 1.5;
-  const IMGDIR = 'g2';
 
   const primus = Primus.connect(`${location.origin}`);
 
@@ -88,7 +87,7 @@
       const grp = getGroup(event);
       grp.animate(ANIMSPD, easing).scale(1, 1);
     });
-    const image = group.image(`${IMGDIR}/${imgId}.jpg`);
+    const image = group.image(`img/${imgId}`);
     image.size(IMGSIZE, IMGSIZE);
     return group;
   }

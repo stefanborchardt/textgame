@@ -5,7 +5,6 @@
   const MARGIN = 3;
   const CLICKZOOM = 1.2;
   const HOVERZOOM = 1.8;
-  const IMGDIR = 'g3';
 
   const primus = Primus.connect(`${location.origin}`);
 
@@ -89,7 +88,7 @@
       const grp = getGroup(event);
       grp.animate(ANIMSPD, easing).scale(1, 1);
     });
-    const image = group.image(`${IMGDIR}/${imgId}.jpg`);
+    const image = group.image(`img/${imgId}`);
     image.size(IMGSIZE, IMGSIZE);
     return group;
   }
@@ -313,7 +312,7 @@
         warn('#selects');
       }
     } else if (data.updExtras !== undefined) {
-      // update partner extra selects
+      // update partner extras
       $('#undo-partner').prop('checked', data.extra.undo);
       if (data.extra.undo) {
         glow('#undo-partner');
