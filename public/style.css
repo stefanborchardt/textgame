@@ -162,12 +162,13 @@ li {
 .screenshot {
   width: 30vw;
   min-width: 350px;
-  margin-right: 10vw;
+  margin-right: 5vw;
 }
 #screens {
   display: flex;
   margin-top: 2vh;
-  font-size: 130%
+  font-size: 130%;
+  text-decoration: underline;
 }
 .w50 {
   width: 50vw;
