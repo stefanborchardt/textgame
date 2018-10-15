@@ -120,8 +120,11 @@ li {
 .gameChoice {
   margin-bottom: 2vh;
 }
+#newPartner {
+  margin-right: 5vw;
+}
 
-#copyright, #footer {
+#copyright, #footer, #skip {
   font-size: 80%;
 }
 

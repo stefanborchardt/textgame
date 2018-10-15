@@ -44,6 +44,7 @@
   $('#write').hide();
   $('#status').hide();
   $('#next').hide();
+  $('#skip').hide();
 
   // ########################  SVG
 
@@ -351,6 +352,10 @@
           }
         }, 3000);
       }
+    } else if (data.notify !== undefined) {
+      const oldTitle = document.title;
+      document.title = 'START';
+      setTimeout(() => { document.title = `... ${oldTitle}`; }, 1000);
     }
     $('#box').focus();
   });

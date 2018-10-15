@@ -312,7 +312,7 @@
         warn('#selects');
       }
     } else if (data.updExtras !== undefined) {
-      // update partner extra selects
+      // update partner extras
       $('#undo-partner').prop('checked', data.extra.undo);
       if (data.extra.undo) {
         glow('#undo-partner');
@@ -326,7 +326,7 @@
         warn('#joker-partner');
       }
     } else if (data.ended !== undefined) {
-      // TODO
+      // TODO add highscore
       updateImages(data.board);
       $('#status').hide();
       $('#write').hide();
@@ -341,6 +341,7 @@
       $('.nextlink').prop('href', '/level1/done');
       $('#next').show();
     } else if (data.turn !== undefined) {
+      // handle new turns
       handleTurnData(data);
     } else if (data.typing !== undefined) {
       if ($('.partnerTyping').length === 0) {
@@ -351,6 +352,10 @@
           }
         }, 3000);
       }
+    } else if (data.notify !== undefined) {
+      const oldTitle = document.title;
+      document.title = 'START';
+      setTimeout(() => { document.title = `... ${oldTitle}`; }, 1000);
     }
     $('#box').focus();
   });

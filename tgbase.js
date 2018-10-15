@@ -364,6 +364,7 @@ module.exports = (options) => {
       turnCount: state.turnCount,
       turn: (isReqTurn) ? requester.role : partner.role,
       selectionsLeft: state.selectionsLeft,
+      previousSelection: Array.from(state.previousSelection),
       currentSelection: Array.from(state.currentSelection),
       [requester.role]: {
         board: Array.from(requester.board),
@@ -581,8 +582,8 @@ module.exports = (options) => {
       const increasedSelection = calculateIncreasedSelections();
       stateToUpdate.selectionsLeft = commonLeftNow < increasedSelection
         ? commonLeftNow : increasedSelection;
-      writeMsg(requester.spark, 'Removed an unique image - extra Selections available in this turn.');
-      writeMsg(partner.spark, 'Removed an unique image - extra Selections available in this turn.');
+      // writeMsg(requester.spark, 'Removed an unique image - extra Selections available in this turn.');
+      // writeMsg(partner.spark, 'Removed an unique image - extra Selections available in this turn.');
     } else {
       stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
         ? commonLeftNow : paramSelections;
@@ -719,11 +720,11 @@ module.exports = (options) => {
     if (jRequesterSession.gameStateId === 'NOGAME') {
       // new connection or server restart
       // going to find new partner
-      writeMsg(spark, 'Welcome! Finding other player ...');
+      writeMsg(spark, 'Welcome!');
     } else {
       // unexpired session connecting again
       // going to check if former partner is still there
-      writeMsg(spark, 'Welcome back! Trying to find previous other player, click "New Game" if taking too long.');
+      writeMsg(spark, 'Welcome back! Trying to find previous teammate, click "New Game" if taking too long.');
     }
 
     // try to find a partner and set up game
@@ -738,6 +739,9 @@ module.exports = (options) => {
       writeMsg(partner.spark, `Found ${newOrExist} teammate.`);
       // initialize clients
       broadcastTurn(gameState, requester, partner);
+      // flash title bar
+      requester.spark.write({ notify: true });
+      partner.spark.write({ notify: true });
     } else {
       // no partner found yet
       writeMsg(spark, 'Waiting for other player...');
