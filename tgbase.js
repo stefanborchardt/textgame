@@ -209,9 +209,18 @@ module.exports = (options) => {
               // new pair or expired game state
               const logName = getLogname(reqSid, sessId);
               logger.info(`new pair ${logName}`);
-
               jPartner.gameStateId = logName;
               jRequesterCopy.gameStateId = logName;
+
+              // set parameters for image file delivery (see routes/images)
+              const partnerImgOffset = Math.ceil(Math.random() * paramSetSize / 2);
+              const reqImgOffset = Math.ceil(Math.random() * paramSetSize / 2);
+              jPartner.setSize = paramSetSize;
+              jPartner.offset = partnerImgOffset;
+              jPartner.map = directory;
+              jRequesterCopy.setSize = paramSetSize;
+              jRequesterCopy.offset = reqImgOffset;
+              jRequesterCopy.map = directory;
 
               // init game state
               const initialBoard = createInitialState();
@@ -227,6 +236,7 @@ module.exports = (options) => {
                   unique: initialBoard.uniqueA,
                   messageCount: 0,
                   extraSelected: '',
+                  imgOffset: reqImgOffset,
                 },
                 [sessId]: {
                   sessionId: sessId,
@@ -238,6 +248,7 @@ module.exports = (options) => {
                   unique: initialBoard.uniqueB,
                   messageCount: 0,
                   extraSelected: '',
+                  imgOffset: partnerImgOffset,
                 },
                 name: paramGameName,
                 common: initialBoard.common,
@@ -399,14 +410,20 @@ module.exports = (options) => {
     }
   );
 
+  const decipherImgId = (id, offset) => {
+    const decipheredId = ((parseInt(id, 10) + paramSetSize - offset - 100) % paramSetSize) + 100;
+    return decipheredId.toString();
+  };
+
   const registerClick = (state, requester, partner, id, selected) => {
+    const decipheredId = decipherImgId(id, requester.imgOffset);
     const curSel = state.currentSelection;
     const stateToUpdate = gameStates.get(state.id);
-    if (selected && !curSel.has(id)) {
-      curSel.add(id);
+    if (selected && !curSel.has(decipheredId)) {
+      curSel.add(decipheredId);
       stateToUpdate.selectionsLeft -= 1;
-    } else if (!selected && curSel.has(id)) {
-      curSel.delete(id);
+    } else if (!selected && curSel.has(decipheredId)) {
+      curSel.delete(decipheredId);
       stateToUpdate.selectionsLeft += 1;
     } else {
       logger.warn(`selection by ${requester.sessionId} in game ${state.id} not allowed`);
@@ -432,12 +449,22 @@ module.exports = (options) => {
       .filter(val => state[state.playerA].board.has(val)).length
   );
 
+  /** Caesar cipher is good enough, because the Ids are equally distributed  */
+  const cipherImgIds = (set, offset) => {
+    const arr = Array.from(set.values());
+    // wrap around
+    return arr.map((x) => {
+      const cipherId = ((parseInt(x, 10) + offset - 100) % paramSetSize) + 100;
+      return cipherId.toString();
+    });
+  };
+
   /** game state suitable for sending to the player */
   const getTurnData = (player, state, turn) => (
     {
       turn,
       role: player.role,
-      board: Array.from(player.board),
+      board: cipherImgIds(player.board, player.imgOffset),
       turnCount: state.turnCount,
       selectionsLeft: state.selectionsLeft,
       extra: {
@@ -582,8 +609,6 @@ module.exports = (options) => {
       const increasedSelection = calculateIncreasedSelections();
       stateToUpdate.selectionsLeft = commonLeftNow < increasedSelection
         ? commonLeftNow : increasedSelection;
-      // writeMsg(requester.spark, 'Removed an unique image - extra Selections available in this turn.');
-      // writeMsg(partner.spark, 'Removed an unique image - extra Selections available in this turn.');
     } else {
       stateToUpdate.selectionsLeft = commonLeftNow < paramSelections
         ? commonLeftNow : paramSelections;
@@ -704,7 +729,7 @@ module.exports = (options) => {
 
   // ====================================================== connection handler
 
-  const connectionHandler = (spark, sessionStore) => {
+  const connectionHandler = (spark, sessionStore, imageMap) => {
     // we use the browser session to identify a user
     // expiration of session can be configured in the properties
     // a user session can span multiple sparks (websocket connections)
@@ -732,6 +757,7 @@ module.exports = (options) => {
       jRequesterSession, sessionStore);
 
     if (gameState != null) {
+      writeLog(gameState.id, imageMap);
       // it's a match
       const partner = getPartner(requesterSid, gameState);
       const requester = gameState[requesterSid];
@@ -739,11 +765,13 @@ module.exports = (options) => {
       writeMsg(partner.spark, `Found ${newOrExist} teammate.`);
       // initialize clients
       broadcastTurn(gameState, requester, partner);
+      // TODO remove?
       // flash title bar
       requester.spark.write({ notify: true });
       partner.spark.write({ notify: true });
     } else {
       // no partner found yet
+      // TODO notification
       writeMsg(spark, 'Waiting for other player...');
     }
 
@@ -817,10 +845,5 @@ module.exports = (options) => {
     gameStates,
     writeMsg,
     writeLog,
-    getUniqueLeft,
-    getCommonLeft,
-    getGameData,
-    getShortGameData,
-    broadcastTurn,
   };
 };

@@ -60,7 +60,7 @@ const primusFirst = new Primus(server, {
   parser: 'json',
 });
 
-const firstSocket = require('./tgfirst')(sessionStore.store);
+const firstSocket = require('./tgfirst')(app, sessionStore.store);
 // this way sessionStore is available to tgSocket
 // so that websocket and http sessions can be matched
 primusFirst.on('connection', firstSocket);
@@ -72,7 +72,7 @@ const primusSecond = new Primus(server, {
   pathname: '/tm',
   parser: 'json',
 });
-const secondSocket = require('./tgsecond')(sessionStore.store);
+const secondSocket = require('./tgsecond')(app, sessionStore.store);
 
 primusSecond.on('connection', secondSocket);
 // primusSecond.save('public/external/primussecond.js');
@@ -86,6 +86,12 @@ const stageSocket = require('./tgstage')(sessionStore.store);
 
 primusStage.on('connection', stageSocket);
 // primusStage.save('public/external/primusstage.js');
+
+// ################## images
+
+const serveImages = require('./routes/images')(path.join(__dirname, 'public'));
+
+app.use('/img', serveImages);
 
 // ################## middleware for resetting player's game participation
 
@@ -108,8 +114,10 @@ app.use('/', loginRouter);
 app.use('/intro', introRouter);
 app.use('/level1', firstRouter);
 app.use('/level2', secondRouter);
-app.use('/stage', stageRouter);
+// TODO migrate to new image delivery
+// app.use('/stage', stageRouter);
 
+// ##################  login
 // when a game router detects an unauthenticated user it redirects
 // to the login (=root) page. after sending the login form, we do a basic authentication here
 app.post('/login', (req, res) => {
