@@ -587,13 +587,13 @@ module.exports = (options) => {
 
       const dataReq = {
         ended: true,
-        board: Array.from(state[requester.sessionId].unique),
+        board: cipherImgIds(state[requester.sessionId].unique, requester.imgOffset),
         score,
         expl: explanation,
       };
       const dataPartner = {
         ended: true,
-        board: Array.from(state[partner.sessionId].unique),
+        board: cipherImgIds(state[partner.sessionId].unique, partner.imgOffset),
         score,
         expl: explanation,
       };
