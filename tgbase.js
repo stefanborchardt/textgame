@@ -105,6 +105,8 @@ module.exports = (options) => {
   /** reset gameStateId and partnerSpkId for session ID  in store */
   const resetSessionToUnpaired = (sessionId, sStore) => {
     const jSession = syncSession(sessionId, sStore);
+    // we do not know who else might access the session store in
+    // this very short period of time, shallow copy is sufficient
     const jSessionCopy = Object.assign({}, jSession);
     jSessionCopy.gameStateId = 'NOGAME';
     sStore.set(sessionId, `${JSON.stringify(jSessionCopy)}\n`, maxAge);
@@ -181,6 +183,7 @@ module.exports = (options) => {
           const foundPartnerSpark = findPartnerSpark(spk, sessId);
           if (foundPartnerSpark != null) {
             // partner connection exists
+            // copy in case a change to the session store occurs in the meantime
             const jRequesterCopy = Object.assign({}, jRequester);
             const existingState = gameStates.get(gameStateId);
             if (existingState != null) {
@@ -250,6 +253,7 @@ module.exports = (options) => {
                   extraSelected: '',
                   imgOffset: partnerImgOffset,
                 },
+                startTime: Date.now(),
                 name: paramGameName,
                 common: initialBoard.common,
                 turn: reqSid,
@@ -365,6 +369,7 @@ module.exports = (options) => {
     updState[requester.sessionId].messageCount += 1;
     gameStates.set(state.id, updState);
 
+    dataCopy.gameSecs = Math.floor((Date.now() - state.startTime) / 1000);
     dataCopy.playerMsgNumber = updState[requester.sessionId].messageCount;
     writeLog(state.id, dataCopy);
   };
@@ -373,6 +378,7 @@ module.exports = (options) => {
   const getGameData = (state, requester, partner, isReqTurn) => (
     {
       turnCount: state.turnCount,
+      gameSecs: Math.floor((Date.now() - state.startTime) / 1000),
       turn: (isReqTurn) ? requester.role : partner.role,
       selectionsLeft: state.selectionsLeft,
       previousSelection: Array.from(state.previousSelection),
@@ -401,6 +407,7 @@ module.exports = (options) => {
   const getShortGameData = (state, requester, partner) => (
     {
       turnCount: state.turnCount,
+      gameSecs: Math.floor((Date.now() - state.startTime) / 1000),
       turn: (state.turn === requester.sessionId) ? requester.role : partner.role,
       selectionsLeft: state.selectionsLeft,
       currentSelection: Array.from(state.currentSelection),
@@ -650,9 +657,10 @@ module.exports = (options) => {
     }
     partner.spark.write({ updExtras: true, extra });
     gameStates.set(state.id, stateToUpdate);
+    // because in this method we are logging twice (broadcastTurn at end)
     // make a copy so that further changes to game state don't get logged now
-    const shortGData = Object.assign({}, getShortGameData(stateToUpdate, requester, partner));
-    writeLog(state.id, shortGData);
+    const shortGData = getShortGameData(stateToUpdate, requester, partner);
+    writeLog(state.id, JSON.parse(JSON.stringify(shortGData)));
 
     // check for agreement
     if (stateToUpdate[partner.sessionId].extraSelected === '') {
