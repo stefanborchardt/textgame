@@ -82,7 +82,7 @@ const primusStage = new Primus(server, {
   pathname: '/th',
   parser: 'json',
 });
-const stageSocket = require('./tgstage')(sessionStore.store);
+const stageSocket = require('./tgstage')(app, sessionStore.store);
 
 primusStage.on('connection', stageSocket);
 // primusStage.save('public/external/primusstage.js');
@@ -114,8 +114,7 @@ app.use('/', loginRouter);
 app.use('/intro', introRouter);
 app.use('/level1', firstRouter);
 app.use('/level2', secondRouter);
-// TODO migrate to new image delivery
-// app.use('/stage', stageRouter);
+app.use('/stage', stageRouter);
 
 // ##################  login
 // when a game router detects an unauthenticated user it redirects

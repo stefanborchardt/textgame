@@ -366,8 +366,8 @@
     } else if (data.notify !== undefined) {
       if (notify) {
         const notification = new Notification('Found teammate!',
-        { requireInteraction: true });
-      // setTimeout(notification.close.bind(notification), 4000);
+          { requireInteraction: true });
+        // setTimeout(notification.close.bind(notification), 4000);
       }
     }
     $('#box').focus();

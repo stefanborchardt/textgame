@@ -1,13 +1,23 @@
 (() => {
   const ANIMSPD = 100;
-  const GRIDDIM = 5;
-  const IMGSIZE = 17;
-  const MARGIN = 3;
-  const CLICKZOOM = 1.2;
-  const HOVERZOOM = 1.8;
-  const IMGDIR = 'g0';
+  const GRIDDIM = 4;
+  const IMGSIZE = 20;
+  const MARGIN = 4;
+  const CLICKZOOM = 1.1;
+  const HOVERZOOM = 1.6;
 
   const primus = Primus.connect(`${location.origin}`);
+
+  // ######################## initially hide control elements
+
+  $('#endTurn').hide();
+  $('#extras').hide();
+  $('#write').hide();
+  $('#status').hide();
+  $('#next').hide();
+  $('#skip').hide();
+
+  // ######################## some UI functions
 
   const addMessage = (text, className) => {
     const newLi = document.createElement('li');
@@ -37,13 +47,20 @@
     animate(selector, 'warn');
   };
 
-  // ######################## initially hide control elements
-
-  $('#endTurn').hide();
-  $('#extras').hide();
-  $('#write').hide();
-  $('#status').hide();
-  $('#next').hide();
+  let notify = false;
+  const askPermission = () => {
+    if (Notification.permission === 'granted') {
+      notify = true;
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission((permission) => {
+        if (permission === 'granted') {
+          notify = true;
+        }
+      });
+    }
+  };
+  // delegate event 
+  $('#messages').on('click', '#notify', askPermission);
 
   // ########################  SVG
 
@@ -88,7 +105,7 @@
       const grp = getGroup(event);
       grp.animate(ANIMSPD, easing).scale(1, 1);
     });
-    const image = group.image(`${IMGDIR}/${imgId}.jpg`);
+    const image = group.image(`img/${imgId}`);
     image.size(IMGSIZE, IMGSIZE);
     return group;
   }
@@ -150,7 +167,7 @@
   // ################  OUTGOING  Chat
 
   function sendText() {
-    const txt = $('#box').val();
+    const txt = $('#box').text();
     if (txt !== '') {
       primus.write(JSON.stringify({ txt }));
       $('#box').val('');
@@ -180,11 +197,6 @@
   };
 
   $('#box').on('keypress', evt => keyHandler(evt));
-
-  // TODO escape?
-  const filterInput = inpVal => inpVal;
-  $('#box').on('keyup', () => $('#box').val(filterInput($('#box').val())));
-
 
   // ##################### OUTGOING Turns, Reset
 
@@ -312,7 +324,7 @@
         warn('#selects');
       }
     } else if (data.updExtras !== undefined) {
-      // update partner extra selects
+      // update partner extras
       $('#undo-partner').prop('checked', data.extra.undo);
       if (data.extra.undo) {
         glow('#undo-partner');
@@ -326,7 +338,6 @@
         warn('#joker-partner');
       }
     } else if (data.ended !== undefined) {
-      // TODO
       updateImages(data.board);
       $('#status').hide();
       $('#write').hide();
@@ -335,12 +346,13 @@
       $('li').remove();
       addMessage('HOST: Game ended. These are the unique images.');
       addMessage(`HOST: ${data.expl}`);
-      addMessage('HOST: Continue in <a href="/stage">level 2</a>.');
+      addMessage('HOST: Continue in <a href="/stage">stage</a>.');
       $('#active').text(`End of game. ${data.score} points.`);
       $('#playerturn').prop('class', 'ownTurn');
       $('.nextlink').prop('href', '/stage');
       $('#next').show();
     } else if (data.turn !== undefined) {
+      // handle new turns
       handleTurnData(data);
     } else if (data.typing !== undefined) {
       if ($('.partnerTyping').length === 0) {
@@ -350,6 +362,12 @@
             $('.partnerTyping').remove();
           }
         }, 3000);
+      }
+    } else if (data.notify !== undefined) {
+      if (notify) {
+        const notification = new Notification('Found teammate!',
+          { requireInteraction: true });
+        // setTimeout(notification.close.bind(notification), 4000);
       }
     }
     $('#box').focus();
