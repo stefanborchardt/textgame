@@ -8,6 +8,16 @@
 
   const primus = Primus.connect(`${location.origin}`);
 
+  // ######################## initially hide control elements
+
+  $('#endTurn').hide();
+  $('#extras').hide();
+  $('#write').hide();
+  $('#status').hide();
+  $('#next').hide();
+
+  // ######################## some UI functions
+
   const addMessage = (text, className) => {
     const newLi = document.createElement('li');
     newLi.innerHTML = text;
@@ -36,13 +46,20 @@
     animate(selector, 'warn');
   };
 
-  // ######################## initially hide control elements
-
-  $('#endTurn').hide();
-  $('#extras').hide();
-  $('#write').hide();
-  $('#status').hide();
-  $('#next').hide();
+  let notify = false;
+  const askPermission = () => {
+    if (Notification.permission === 'granted') {
+      notify = true;
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission((permission) => {
+        if (permission === 'granted') {
+          notify = true;
+        }
+      });
+    }
+  };
+  // delegate event 
+  $('#messages').on('click', '#notify', askPermission);
 
   // ########################  SVG
 
@@ -149,7 +166,7 @@
   // ################  OUTGOING  Chat
 
   function sendText() {
-    const txt = $('#box').val();
+    const txt = $('#box').text();
     if (txt !== '') {
       primus.write(JSON.stringify({ txt }));
       $('#box').val('');
@@ -179,11 +196,6 @@
   };
 
   $('#box').on('keypress', evt => keyHandler(evt));
-
-  // TODO escape?
-  const filterInput = inpVal => inpVal;
-  $('#box').on('keyup', () => $('#box').val(filterInput($('#box').val())));
-
 
   // ##################### OUTGOING Turns, Reset
 
@@ -325,7 +337,6 @@
         warn('#joker-partner');
       }
     } else if (data.ended !== undefined) {
-      // TODO add highscore
       updateImages(data.board);
       $('#status').hide();
       $('#write').hide();
@@ -352,9 +363,11 @@
         }, 3000);
       }
     } else if (data.notify !== undefined) {
-      const oldTitle = document.title;
-      document.title = 'START';
-      setTimeout(() => { document.title = `... ${oldTitle}`; }, 1000);
+      if (notify) {
+        const notification = new Notification('Found teammate!',
+          { requireInteraction: true });
+        // setTimeout(notification.close.bind(notification), 4000);
+      }
     }
     $('#box').focus();
   });

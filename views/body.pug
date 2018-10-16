@@ -1,66 +1,64 @@
-block content
+div#content
 
-	div#content
+	div#left
+		h1= title
 
-		div#left
-			h1= title
+		div#drawing
 
-			div#drawing
+	div#right
 
-		div#right
+		h1 #{game}
 
-			h1 #{game}
+		div#chat
+			ul#messages
+		
+		div#write(class='inputsection')
+			input#box(type='text')
+			button#sendText Send
 
-			div#chat
-				ul#messages
-			
-			div#write(class='inputsection')
-				input#box(type='text')
-				button#sendText Send
+		div#playerturn(class='inputsection')
+			span#active 
 
-			div#playerturn(class='inputsection')
-				span#active 
+		div#control(class='inputsection')
+			div#status 
+				div Up to 
+					span#selects
+					|  yet to remove 
+				div 
+					| You 
+					span#unqPlayer
+					|  Mate 
+					span#unqPartner 
+					|  differences left 
+				div 
+					span#turncount 
+					|  turns taken
 
-			div#control(class='inputsection')
-				div#status 
-					div Up to 
-						span#selects
-						|  yet to remove 
-					div 
-						| You 
-						span#unqPlayer
-						|  Mate 
-						span#unqPartner 
-						|  differences left 
-					div 
-						span#turncount 
-						|  turns taken
+			div#turnButton
+				button#endTurn End Turn
+		
 
-				div#turnButton
-					button#endTurn End Turn
-			
+		div#extras(class='inputsection') Extras: 
+			//- button#sendExtra 
+			input#undo(type='checkbox', class='undo', name='extras', value='undo')
+			input#undo-partner(type='checkbox', class='undo', name='extras', value='undo-partner', disabled='true')
+			label(for='undo', class='undo')  Undo
+			input#joker(type='checkbox', class='joker', name='extras', value='joker')
+			input#joker-partner(type='checkbox', class='joker', name='extras', value='joker-partner', disabled='true')
+			label(for='joker', class='joker')  Joker
 
-			div#extras(class='inputsection') Extras: 
-				//- button#sendExtra 
-				input#undo(type='checkbox', class='undo', name='extras', value='undo')
-				input#undo-partner(type='checkbox', class='undo', name='extras', value='undo-partner', disabled='true')
-				label(for='undo', class='undo')  Undo
-				input#joker(type='checkbox', class='joker', name='extras', value='joker')
-				input#joker-partner(type='checkbox', class='joker', name='extras', value='joker-partner', disabled='true')
-				label(for='joker', class='joker')  Joker
+		div#next
+			a.nextlink(href='javascript:') Next Game
 
-			div#next
-				a.nextlink(href='javascript:') Next Game
+		div(class='gameChoice') 
+			a#newPartner(href='javascript:') New Game
 
-			div(class='gameChoice') 
-				a#newPartner(href='javascript:') New Game
+		div#copyright Copyright 2018 
+			a(href='https://github.com/stefanborchardt/textgame') Stefan Borchardt 
 
-			div#copyright Copyright 2018 
-				a(href='https://github.com/stefanborchardt/textgame') Stefan Borchardt 
-
-			div#footer Image Data: Chaladze, G., Kalatozishvili, L. (2017).  
-				a(href='http://chaladze.com/l5/') Linnaeus 5 Dataset 
-				| for Machine Learning. 
-				a#skip(href='/level1/skip') Skip Level 1
+		div#footer Image Data: Chaladze, G., Kalatozishvili, L. (2017).  
+			a(href='http://chaladze.com/l5/') Linnaeus 5 Dataset 
+			| for Machine Learning. 
+			a#skip(href='/level1/skip') Skip Level 1
 
 			

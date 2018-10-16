@@ -19,7 +19,6 @@ module.exports = rootPath => router.all('/:imageId', (req, res) => {
     return;
   }
 
-  const sess = req.session;
   // only players in a game need images
   if (!req.session.loggedIn || !req.session.gameStateId || req.session.gameStateId === 'NOGAME') {
     res.sendStatus(401);
@@ -28,13 +27,13 @@ module.exports = rootPath => router.all('/:imageId', (req, res) => {
 
   const { imageId } = req.params;
   // only valid ids have to be handled
-  if (Number.isNaN(imageId) || imageId < 100 || imageId > 100 + sess.setSize) {
+  if (Number.isNaN(imageId) || imageId < 100 || imageId >= 100 + req.session.setSize) {
     res.sendStatus(404);
     return;
   }
 
-  const decipheredImgId = decipherImgId(imageId, sess.offset, sess.setSize);
-  const mapping = req.app.get(sess.map);
+  const decipheredImgId = decipherImgId(imageId, req.session.offset, req.session.setSize);
+  const mapping = req.app.get(req.session.map);
   const imagePath = mapping[decipheredImgId];
 
   const imgPath = path.join(rootPath, imagePath);

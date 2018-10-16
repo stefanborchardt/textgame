@@ -780,7 +780,7 @@ module.exports = (options) => {
     } else {
       // no partner found yet
       // TODO notification
-      writeMsg(spark, 'Waiting for other player...');
+      writeMsg(spark, 'Waiting for other player... <a id="notify" href="javascript:">Notify me</a>.');
     }
 
     // ====================================================== handler incoming requests
