@@ -166,15 +166,9 @@
 
   // ################  OUTGOING  Chat
 
-  // remove html code from text
-  const filterElement = document.createElement('div');
-  function filter(text) {
-    filterElement.innerHTML = text;
-    return filterElement.innerText;
-  }
-
   function sendText() {
-    const txt = filter($('#box').val());
+    // xss sanitizing on server
+    const txt = $('#box').val();
     if (txt !== '') {
       primus.write(JSON.stringify({ txt }));
       $('#box').val('');

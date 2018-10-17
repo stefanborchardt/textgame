@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const xss = require('xss');
 
 module.exports = (options) => {
   const {
@@ -66,7 +67,7 @@ module.exports = (options) => {
     // client with old sessionid reconnecting
     // after server restart
     // creating session store entry from sid
-    logger.info('restoring session from cookie');
+    logger.info('restoring session from cookie after restart');
     sStore.set(sessionId, JSON.stringify({
       cookie: {
         originalMaxAge: maxAge,
@@ -191,7 +192,7 @@ module.exports = (options) => {
               if (existingState[sessId] === undefined || existingState[reqSid] === undefined) {
                 // session IDs in game state do not match session data of partners
                 // this would be unexpected
-                logger.warn(`resetting pair ${gameStateId} : ${jRequester.gameStateId} + ${jPartner.gameStateId}`);
+                logger.warn(`game state corruption, resetting pair ${gameStateId}`);
                 resetSessionToUnpaired(reqSid, sStore);
                 resetSessionToUnpaired(sessId, sStore);
                 gameStates.del(gameStateId);
@@ -299,14 +300,14 @@ module.exports = (options) => {
 
     const { gameStateId } = jSession;
     if (gameStateId === 'NOGAME' || gameStateId == null) {
-      logger.info('session not paired');
+      // e.g. game reset by partner
       return { state: 'NOGAME' };
     }
 
     const state = gameStates.get(gameStateId);
     if (state == null) {
       // former partner has left game and we know it
-      logger.warn(`resetting partner ${gameStateId}`);
+      logger.info(`resetting partner ${gameStateId}`);
       resetSessionToUnpaired(reqSid, sStore);
       return { state: 'reset' };
     }
@@ -336,7 +337,7 @@ module.exports = (options) => {
         state, partner, requester, ownturn,
       };
     }
-    logger.info('spark not connected');
+    logger.info(`spark not connected ${gameStateId}`);
     return { state: 'partnerdisconnected' };
   };
 
@@ -433,7 +434,7 @@ module.exports = (options) => {
       curSel.delete(decipheredId);
       stateToUpdate.selectionsLeft += 1;
     } else {
-      logger.warn(`selection by ${requester.sessionId} in game ${state.id} not allowed`);
+      logger.warn(`selection by ${requester.role} not in sync with server state ${state.id}`);
     }
     stateToUpdate.currentSelection = curSel;
     gameStates.set(state.id, stateToUpdate);
@@ -536,7 +537,7 @@ module.exports = (options) => {
   // assumes that the partner connection has been checked
   const endTurn = (state, partner, requester, ownTurn) => {
     if (!ownTurn) {
-      logger.warn(`ending turn by ${requester.sessionId} in game ${state.id} not allowed`);
+      logger.warn(`ending turn by ${requester.role} in game ${state.id} not allowed`);
       return;
     }
     if (state.selectionsLeft < 0) {
@@ -742,13 +743,14 @@ module.exports = (options) => {
     // expiration of session can be configured in the properties
     // a user session can span multiple sparks (websocket connections)
     const requesterSid = extractSid(spark.headers.cookie);
-    if (requesterSid == null) {
-      logger.info('connection without cookie');
-      writeMsg(spark, 'Please allow cookies.');
+    if (!requesterSid) {
+      // denying connection
+      logger.info('websocket connection without cookie');
+      writeMsg(spark, 'Please log in and allow cookies.');
+      spark.end();
       return;
     }
     const jRequesterSession = syncSession(requesterSid, sessionStore);
-    // logger.info('new connection');
 
     if (jRequesterSession.gameStateId === 'NOGAME') {
       // new connection or server restart
@@ -786,7 +788,25 @@ module.exports = (options) => {
     // ====================================================== handler incoming requests
 
     spark.on('data', (packet) => {
-      if (!packet) return;
+      if (!packet) {
+        return;
+      }
+      // XSS: packet is user input
+      // by documentation, primus framework should have parsed packet already,
+      // but it is not
+      const sanitized = xss(packet, {
+        whiteList: [], // no tags allowed
+        stripIgnoreTag: true, // do not escape but remove unallowed tags
+        stripIgnoreTagBody: true, // also remove bodies of unallowed tags
+        // comments removed by default
+      });
+      let data = {};
+      try {
+        data = JSON.parse(sanitized);
+      } catch (error) {
+        logger.warn(`error parsing json: ${error}`);
+        return;
+      }
 
       const reqSid = extractSid(spark.headers.cookie);
 
@@ -799,9 +819,8 @@ module.exports = (options) => {
         // game reset by partner
         writeMsg(spark, 'Click "New Game"');
       } else if (state === 'partnerdisconnected') {
-        const data = JSON.parse(packet);
         if (data.reset !== undefined) {
-          // the second player wants to leave the game
+          // the SECOND player wants to leave the game
           logger.info(`resetting partner ${reqSid}`);
           const jSession = syncSession(reqSid, sessionStore);
           gameStates.del(jSession.gameStateId);
@@ -813,9 +832,8 @@ module.exports = (options) => {
       } else if (state === 'reset') {
         // handled in checkPartnerGetState(), mentioned here to cover all possible return values
       } else {
-        const data = JSON.parse(packet);
         if (data.reset !== undefined) {
-          // the first player wants to leave the game
+          // the FIRST player wants to leave the game
           logger.info(`resetting pair ${state.id}`);
           writeLog(state.id, { resetBy: requester.role });
           gameStates.del(state.id);
@@ -829,6 +847,7 @@ module.exports = (options) => {
           return;
         }
         // here we evaluate the type of message
+        // both players connected and playing
         if (data.txt !== undefined) {
           broadcastMessage(state, requester, partner, data);
         } else if (data.act !== undefined) {
