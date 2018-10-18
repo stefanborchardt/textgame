@@ -47,14 +47,15 @@
     animate(selector, 'warn');
   };
 
-  let notify = false;
   const askPermission = () => {
     if (Notification.permission === 'granted') {
-      notify = true;
+      const notification = new Notification('Notification On');
+      setTimeout(notification.close.bind(notification), 2000);
     } else if (Notification.permission !== 'denied') {
       Notification.requestPermission((permission) => {
         if (permission === 'granted') {
-          notify = true;
+          const notification = new Notification('Notification On');
+          setTimeout(notification.close.bind(notification), 2000);
         }
       });
     }
@@ -365,7 +366,7 @@
         }, 3000);
       }
     } else if (data.notify !== undefined) {
-      if (notify) {
+      if (Notification.permission === 'granted') {
         const notification = new Notification('Found teammate!',
           { requireInteraction: true });
         // setTimeout(notification.close.bind(notification), 4000);
