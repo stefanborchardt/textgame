@@ -457,6 +457,7 @@ module.exports = (options) => {
 
   /** @returns the number of shared images that the players have left */
   const getCommonLeft = state => (
+    // the shared images are the same for player A and B, so we can compare to any
     Array.from(state.common)
       .filter(val => state[state.playerA].board.has(val)).length
   );
@@ -489,6 +490,8 @@ module.exports = (options) => {
       partnerUniqLeft: getUniqueLeft(state, player.partnerSid),
       partnerUniqDown: Array.from(state.previousSelection)
         .filter(val => state[player.partnerSid].unique.has(val)).length > 0,
+      numUnique: paramNumUnique,
+      commonLeft: getCommonLeft(state),
     }
   );
 

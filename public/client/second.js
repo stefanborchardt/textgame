@@ -1,10 +1,10 @@
 (() => {
   const ANIMSPD = 120;
-  const GRIDDIM = 5;
-  const IMGSIZE = 17;
-  const MARGIN = 3;
-  const CLICKZOOM = 1.2;
-  const HOVERZOOM = 1.8;
+  const GRIDDIM = 4;
+  const IMGSIZE = 20;
+  const MARGIN = 4;
+  const CLICKZOOM = 1.1;
+  const HOVERZOOM = 1.6;
 
   const primus = Primus.connect(`${location.origin}`);
 
@@ -16,6 +16,7 @@
   $('#status').hide();
   $('#next').hide();
   $('#skip').hide();
+  $('#skip').attr('href', '/level2/back');
 
   // ######################## some UI functions
 
@@ -294,6 +295,8 @@
     if (data.partnerUniqDown) {
       warn('#unqPartner');
     }
+    $('#commonLeft').text(data.commonLeft);
+    $('#totalUnique').text(2 * data.numUnique);
     glow('#selects');
     warn('#turncount');
   }

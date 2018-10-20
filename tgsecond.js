@@ -3,12 +3,12 @@ const path = require('path');
 // configure base game
 const options = {
   directory: 'second',
-  paramSetSize: 75,
-  paramNumCommon: 19,
-  paramNumUnique: 6,
+  paramSetSize: 45,
+  paramNumCommon: 11,
+  paramNumUnique: 5,
   paramUndo: true,
   paramJoker: true,
-  paramSelections: 3,
+  paramSelections: 2,
   paramGameName: 'second:L5-train-25xBird100Dog425Berry500',
 };
 
@@ -21,14 +21,14 @@ const getImageMapping = () => {
   const mapping = {
     for: options.paramGameName,
   };
-  for (let i = 100; i < 125; i += 1) {
+  for (let i = 100; i < 115; i += 1) {
     mapping[i] = path.join('bird', `${i}_256.jpg`);
   }
-  for (let i = 125; i < 150; i += 1) {
-    mapping[i] = path.join('dog', `${i + 300}_256.jpg`);
+  for (let i = 115; i < 130; i += 1) {
+    mapping[i] = path.join('dog', `${i + 310}_256.jpg`);
   }
-  for (let i = 150; i < 175; i += 1) {
-    mapping[i] = path.join('berry', `${i + 350}_256.jpg`);
+  for (let i = 130; i < 145; i += 1) {
+    mapping[i] = path.join('berry', `${i + 370}_256.jpg`);
   }
   return mapping;
 };

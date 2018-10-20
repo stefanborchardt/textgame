@@ -2,7 +2,14 @@ const express = require('express');
 
 const router = express.Router();
 
-router.get('/', (req, res) => {
+router.get('/:relock', (req, res) => {
+  if (req.params.relock) {
+    req.session.firstPlayed = false;
+  }
+  res.redirect('/level1');
+});
+
+router.get('/*', (req, res) => {
   if (req.session.loggedIn) {
     if (req.session.firstPlayed) {
       // some game has been played before

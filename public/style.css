@@ -51,7 +51,7 @@ svg {
 }
 #status * span {
   font-weight: bold;
-  font-size: 130%;
+  font-size: 110%;
 }
 
 #chat {
@@ -110,11 +110,11 @@ li {
   font-size: 110%;
 }
 #extras > input {
-  margin-right: 0.5vw;
-  margin-left: 1vw;
+  margin-left: 0.5vw;
 } 
 #extras > label {
-  margin-left: 1vw;
+  margin-left: 0.5vw;
+  margin-right: 1vw;
 } 
 
 .gameChoice {

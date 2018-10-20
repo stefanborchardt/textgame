@@ -293,6 +293,8 @@
     if (data.partnerUniqDown) {
       warn('#unqPartner');
     }
+    $('#commonLeft').text(data.commonLeft);
+    $('#totalUnique').text(2 * data.numUnique);
     glow('#selects');
     warn('#turncount');
   }

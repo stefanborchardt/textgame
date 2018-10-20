@@ -9,7 +9,7 @@ const options = {
   paramUndo: true,
   paramJoker: false,
   paramSelections: 2,
-  paramGameName: 'first:L5-train-flower500..529',
+  paramGameName: 'first:L5-train-flower500berry450',
 };
 
 const g = require('./tgbase')(options);
@@ -21,8 +21,11 @@ const getImageMapping = () => {
   const mapping = {
     for: options.paramGameName,
   };
-  for (let i = 100; i < 130; i += 1) {
+  for (let i = 100; i < 120; i += 1) {
     mapping[i] = path.join('flower', `${i + 400}_256.jpg`);
+  }
+  for (let i = 120; i < 130; i += 1) {
+    mapping[i] = path.join('berry', `${i + 330}_256.jpg`);
   }
   return mapping;
 };
