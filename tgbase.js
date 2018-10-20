@@ -268,6 +268,7 @@ module.exports = (options) => {
                 },
                 currentSelection: new Set(),
                 previousSelection: new Set(),
+                currentEvent: {},
                 isEnded: false,
                 playerA: reqSid,
                 playerB: sessId,
@@ -360,6 +361,7 @@ module.exports = (options) => {
     const dataCopy = {};
     dataCopy.role = requester.role;
     dataCopy.txt = data.txt;
+    // ownMsg is for UI purposes only, not logged, so it's removed again after sending
     dataCopy.ownMsg = true;
     requester.spark.write(dataCopy);
     dataCopy.ownMsg = false;
@@ -411,6 +413,7 @@ module.exports = (options) => {
       gameSecs: Math.floor((Date.now() - state.startTime) / 1000),
       turn: (state.turn === requester.sessionId) ? requester.role : partner.role,
       selectionsLeft: state.selectionsLeft,
+      currentEvent: state.currentEvent,
       currentSelection: Array.from(state.currentSelection),
       extrasAvailable: state.extrasAvailable,
       extraSelectBy: state[requester.sessionId].role,
@@ -437,6 +440,7 @@ module.exports = (options) => {
       logger.warn(`selection by ${requester.role} not in sync with server state ${state.id}`);
     }
     stateToUpdate.currentSelection = curSel;
+    stateToUpdate.currentEvent = { [decipheredId]: selected };
     gameStates.set(state.id, stateToUpdate);
     requester.spark.write({ updSelLeft: stateToUpdate.selectionsLeft });
     partner.spark.write({ updSelLeft: stateToUpdate.selectionsLeft });
@@ -648,6 +652,11 @@ module.exports = (options) => {
   const applyExtra = (state, partner, requester, extra) => {
     // save selection
     const stateToUpdate = gameStates.get(state.id);
+    stateToUpdate.currentEvent = {};
+    stateToUpdate.currentEvent = {
+      undo: extra.undo,
+      joker: extra.joker,
+    };
     const reqSelected = stateToUpdate[requester.sessionId];
     if (extra.undo && paramUndo && !state.extrasAvailable.undoUsed) {
       reqSelected.extraSelected = 'undo';
@@ -773,12 +782,11 @@ module.exports = (options) => {
       const requester = gameState[requesterSid];
       writeMsg(requester.spark, `Found ${newOrExist} teammate.`);
       writeMsg(partner.spark, `Found ${newOrExist} teammate.`);
-      // initialize clients
-      broadcastTurn(gameState, requester, partner);
-      // TODO remove?
-      // flash title bar
+      // notify about game start
       requester.spark.write({ notify: true });
       partner.spark.write({ notify: true });
+      // initialize clients
+      broadcastTurn(gameState, requester, partner);
     } else {
       // no partner found yet
       // TODO notification

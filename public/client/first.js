@@ -365,6 +365,15 @@
         }, 3000);
       }
     } else if (data.notify !== undefined) {
+      // a new game starts
+      if (boardImages.size > 0) {
+        // reload after server restart
+        setTimeout(() => {
+          $('#box').val('');
+          location.reload();
+        }, 200);
+      }
+
       if (Notification.permission === 'granted') {
         const notification = new Notification('Found teammate!',
           { requireInteraction: true });
