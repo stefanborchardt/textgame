@@ -1,7 +1,9 @@
 body {
   padding: 2vw;
 }
-
+h2 {
+  text-decoration: underline;
+}
 #content {
   display: flex;
   align-items: center;

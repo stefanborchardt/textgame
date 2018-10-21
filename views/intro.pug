@@ -10,22 +10,21 @@ html
 
 		h2 Spot the Differences and Delete the Rest
 
-		div.w50 You and your teammate have to remove the images both of you share, so that all the different pictures are left. 
-			| Like below, only that you can't see the other player's images. 
-
+		div.w50 You and your teammate have to remove the images both of you share. In the end there should be only different ones left. 
+			| Your screen will look as shown below, only that you won't be able see your teammate's screen.
 		div#screens
 			div 
 				div You see:
 				img.screenshot(src='/intro_act_player.jpg')
 			div 
-				div Teammate sees:
+				div Your teammate sees:
 				img.screenshot(src='/intro_inact_player.jpg')
 
 		div.w50 You will need the  
 			strong chat
-			| , which is always available. You can only 
+			| , which is always available. Though you can only 
 			strong select and deselect images 
-			| when it is your turn, though. They will be removed when you click 
+			| when it is your turn. They will be removed when you click 
 			strong End Turn
 			| . You find the number of pictures you can select below the chat.
 		
@@ -39,11 +38,11 @@ html
 
 		div.w50 If you deleted a difference, you get more selections in the next turn. Some levels allow you to 
 			strong Undo 
-			| your last turn instead, if both of you agree. There might also be a 
+			| your last turn instead, if both of you click the appropriate button. There might also be a 
 			strong Joker 
-			| available, which removes some of the shared images - but not in the last turn.
+			| available, which removes some of the shared images - though it does not work in the last turn.
 
-		div.w50 Of course, bonus points are rewarded when you don't use the extras.
+		div.w50 Of course, bonus points are awarded when you don't use the extras.
 
 		div.w50 You can click New Game to start over, with another player.
 			a.ok(href='/intro/aye') Start Game
