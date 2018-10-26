@@ -3,6 +3,7 @@ body {
 }
 h2 {
   text-decoration: underline;
+  margin-bottom: 3vh;
 }
 #content {
   display: flex;
@@ -178,7 +179,10 @@ li {
 .w50 {
   width: 50vw;
   margin-bottom: 1vh;
+}
+.plus {
   font-size: 110%;
+  margin-bottom: 2vh;
 }
 .ok {
   font-weight: 900;

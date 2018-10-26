@@ -784,7 +784,9 @@ module.exports = (options) => {
       const partner = getPartner(requesterSid, gameState);
       const requester = gameState[requesterSid];
       writeMsg(requester.spark, `Found ${newOrExist} teammate.`);
+      writeMsg(requester.spark, 'Select the images you both have in common. You can start the conversation now.');
       writeMsg(partner.spark, `Found ${newOrExist} teammate.`);
+      writeMsg(partner.spark, 'When it is your turn, select the images you both have in common. You can start the conversation now.');
       // notify about game start
       requester.spark.write({ notify: true });
       partner.spark.write({ notify: true });
@@ -792,7 +794,6 @@ module.exports = (options) => {
       broadcastTurn(gameState, requester, partner);
     } else {
       // no partner found yet
-      // TODO notification
       writeMsg(spark, 'Waiting for other player... <a id="notify" href="javascript:">Notify me</a>.');
     }
 

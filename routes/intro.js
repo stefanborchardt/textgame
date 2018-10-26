@@ -16,7 +16,7 @@ router.get('/:seen', (req, res) => {
 });
 
 router.get('/*', (req, res) => {
-  res.render('intro', {
+  res.render('intro2', {
     title: 'Intro',
   });
 });
