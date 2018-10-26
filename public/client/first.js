@@ -4,7 +4,7 @@
   const IMGSIZE = 25;
   const MARGIN = 6;
   const CLICKZOOM = 1.1;
-  const HOVERZOOM = 1.5;
+  const HOVERZOOM = 1.6;
 
   const primus = Primus.connect(`${location.origin}`);
 
@@ -92,14 +92,15 @@
     group.id(`img${imgId}`);
     group.data('selected', false);
     group.move(col * (IMGSIZE + MARGIN) + MARGIN, row * (IMGSIZE + MARGIN) + MARGIN);
-    // rect as selection indicator
-    group.rect(IMGSIZE, IMGSIZE);
+    // checkmark as selection indicator
+    group.path('M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z')
+      .size(IMGSIZE * 0.82, IMGSIZE * 0.82);
     // zoom on hover
     group.on('mouseover', (event) => {
       // TODO also move images at edges a little to center
       const grp = getGroup(event);
       grp.front();
-      grp.animate(ANIMSPD, easing).scale(2, 2);
+      grp.animate(ANIMSPD, easing).scale(HOVERZOOM, HOVERZOOM);
     });
     group.on('mouseout', (event) => {
       const grp = getGroup(event);
@@ -120,7 +121,6 @@
           grp.animate(ANIMSPD, easing).scale(CLICKZOOM, CLICKZOOM)
             .animate(ANIMSPD, easing).scale(0.1, 0.1);
           grp.select('image').opacity(1);
-          grp.select('rect').fill('black');
           resolve();
         }).then(() => {
           grp.hide();
@@ -142,20 +142,17 @@
 
   function clickHandler(event) {
     const grp = getGroup(event);
-    const rect = grp.select('rect');
     const img = grp.select('image');
     const selected = !grp.data('selected');
     grp.data('selected', selected);
     if (selected) {
       grp.animate(ANIMSPD, easing).scale(CLICKZOOM, CLICKZOOM)
         .animate(ANIMSPD, easing).scale(HOVERZOOM, HOVERZOOM);
-      img.opacity(0.4);
-      rect.fill('red');
+      img.opacity(0.62);
     } else {
       grp.animate(ANIMSPD, easing).scale(CLICKZOOM, CLICKZOOM)
         .animate(ANIMSPD, easing).scale(HOVERZOOM, HOVERZOOM);
       img.opacity(1);
-      rect.fill('black');
     }
     primus.write(JSON.stringify({
       act: 'click',
