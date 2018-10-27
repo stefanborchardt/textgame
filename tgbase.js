@@ -139,11 +139,10 @@ module.exports = (options) => {
     return r;
   };
 
-  const createInitialState = () => {
-    // first digit of photo indicates category
+  const createInitialStateBase = () => {
     const allImages = new Set();
     while (allImages.size < (paramNumCommon + 2 * paramNumUnique)) {
-      // photo file names 100..599
+      // photo file names 100..999
       allImages.add(Math.floor(Math.random() * paramSetSize + 100).toString());
     }
 
@@ -170,7 +169,7 @@ module.exports = (options) => {
 
   /** finds another user without partner or the former partner and
   * initialises the game state */
-  const findPartnerCheckConnection = (spk, reqSid, jRequester, sStore) => {
+  const findPartnerCheckConnection = (spk, reqSid, jRequester, sStore, createInitialState) => {
     let gameState = null;
     let newOrExist = null;
     const { gameStateId } = jRequester;
@@ -750,7 +749,7 @@ module.exports = (options) => {
 
   // ====================================================== connection handler
 
-  const connectionHandler = (spark, sessionStore, imageMap) => {
+  const connectionHandler = (spark, sessionStore, imageMap, createInitialState = createInitialStateBase) => {
     // we use the browser session to identify a user
     // expiration of session can be configured in the properties
     // a user session can span multiple sparks (websocket connections)
@@ -776,7 +775,7 @@ module.exports = (options) => {
 
     // try to find a partner and set up game
     const { newOrExist, gameState } = findPartnerCheckConnection(spark, requesterSid,
-      jRequesterSession, sessionStore);
+      jRequesterSession, sessionStore, createInitialState);
 
     if (gameState != null) {
       writeLog(gameState.id, imageMap);

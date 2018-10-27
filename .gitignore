@@ -15,6 +15,7 @@ sslcert
 .vscode/settings.json
 .vscode/tasks.json
 public/external/svg.draggable.js
+public/r
 
 .vscode/.ropeproject/config.py
 .vscode/.ropeproject/objectdb
