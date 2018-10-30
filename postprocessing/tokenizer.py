@@ -1,35 +1,60 @@
 import json
 import nltk
+import os
+import fileinput
 
-file = open("logs/postprocess.log", "r", encoding="utf-8")
+
 tknzr = nltk.TweetTokenizer()  # tokenize.WordPunctTokenizer()
-
 tokens = {}
+all_tokens = []
 id_map = {}
-cur_tokens = []
-for l in file:
-    line = json.loads(l)
-    if "for" in line:
-        id_map = line
-    if "txt" in line:
-        cur_tokens += tknzr.tokenize(line["txt"])
-    if "currentEvent" in line:
-        cur_evt = line["currentEvent"]
-        evt_key = list(cur_evt.keys())[0]
-        evt_val = list(cur_evt.values())[0]
-        if evt_key != "undo" and evt_key != "joker":
-            category = id_map[evt_key].split("/")[0]
-            tokens[category] = cur_tokens + tokens.get(category, [])
-            print("=======================")
-            print(category)
-            print(cur_tokens)
-            cur_tokens = []
+cur_tokens = []  # tokens since last selection
+msg_lengths = []
+
+os.chdir('postprocessing/keep')
+files = os.listdir()
+with fileinput.input(files) as f:
+    for l in f:
+        line = json.loads(l)
+        if "for" in line:
+            # image id to file name mapping
+            id_map = line
+        if "txt" in line:
+            # a message
+            tks = tknzr.tokenize(line["txt"])
+            msg_lengths.append(len(tks))
+            cur_tokens += tks
+            all_tokens += tks
+        if "currentEvent" in line:
+            cur_evt = line["currentEvent"]
+            evt_key = list(cur_evt.keys())[0]
+            evt_val = list(cur_evt.values())[0]
+            if evt_key != "undo" and evt_key != "joker":
+                # image selection, tokens since last selection are put into category of image
+                category = id_map[evt_key].split("/")[0]
+                tokens[category] = tokens.get(category, []) + cur_tokens
+                cur_tokens = []
 
 stop_words = nltk.corpus.stopwords.words("english")
 filtered_tokens = {}
 for cat in tokens.keys():
     filtered_tokens[cat] = [w.lower()
                             for w in tokens[cat] if (w.lower() not in stop_words)]
+all_filtered_tokens = [w.lower()
+                       for w in all_tokens if (w.lower() not in stop_words)]
 
-fd = nltk.FreqDist(filtered_tokens["berry"])
+print('total tokens {0}'.format(len(all_tokens)))
+print('distinct tokens {0}'.format(len(set(all_tokens))))
+# msglenfd = nltk.FreqDist(msg_lengths)
+# msglenfd.plot(50, cumulative=False)
+
+fd = nltk.FreqDist(all_filtered_tokens)
 fd.plot(50, cumulative=False)
+# fd1 = nltk.FreqDist(filtered_tokens["berry"])
+# fd1.plot(50, cumulative=False)
+# fd2 = nltk.FreqDist(filtered_tokens["dog"])
+# fd2.plot(50, cumulative=False)
+# fd3 = nltk.FreqDist(filtered_tokens["flower"])
+# fd3.plot(50, cumulative=False)
+# fd4 = nltk.FreqDist(filtered_tokens["bird"])
+# fd4.plot(50, cumulative=False)

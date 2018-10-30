@@ -9,13 +9,13 @@ package-lock.json
 # local settings
 config/+local.properties
 sslcert
+public/r
+postprocessing/keep
+postprocessing/also
 
 # VSCode
 .vscode/launch.json
 .vscode/settings.json
 .vscode/tasks.json
-public/external/svg.draggable.js
-public/r
-
 .vscode/.ropeproject/config.py
 .vscode/.ropeproject/objectdb
