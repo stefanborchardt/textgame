@@ -2,7 +2,8 @@ import json
 import nltk
 import os
 import fileinput
-
+import numpy
+import matplotlib.pyplot as plt
 
 tknzr = nltk.TweetTokenizer()
 # tknzr = nltk.WordPunctTokenizer()
@@ -14,23 +15,21 @@ def filterStopWords(tokenList):
 
 
 # we will collect some statistics in this dictionary
-game_stats = {"high_score": {"all_tokens": [],
-                             "tokens": {},
-                             "msg_counts": {},
-                             "turn_counts": {},
-                             "game_durations": {},
-                             "msg_tokens_counts": [],
-                             "game_count": {}
-                             },
-              "low_score": {"all_tokens": [],
-                            "game_count": {}
-                            },
+game_stats = {"all_tokens": [],
+              "mid_tokens": [],  # after first selection
+              "tokens": {},  # by category etc
+              "msg_counts": {},
+              "turn_counts": {},
+              "game_durations": {},
+              "msg_tokens_counts": {},
+              "game_count": {}
               }
+
 
 os.chdir('postprocessing/keep')
 files = os.listdir()
 print(len(files))
-with fileinput.input(files) as f:
+with fileinput.input(files) as file_handle:
     # because some aspects of the game become known only
     # after the messages are read (e.g. selection, score)
     # we accumulate data in these vars first
@@ -39,88 +38,120 @@ with fileinput.input(files) as f:
     msg_token_counts = []
     prev_msg_count_A = 0
     prev_msg_count_B = 0
-    all_tokens = []
-    tokens = {}
+    game_tokens = []
+    tokens_by_cat_lvl = {}
     cur_tokens = []  # tokens since last selection
-    for ln in f:
-        line = json.loads(ln)
-        if "for" in line:
+    mid_tokens = []  # tokens after first selection
+    game_beginning = True
+    for ln in file_handle:
+        log_entry = json.loads(ln)
+        if "for" in log_entry:
             # image id to file name mapping
-            id_map = line
-            cur_game = line["for"].split(":")[0]
-        if "txt" in line:
+            id_map = log_entry
+            cur_game = log_entry["for"].split(":")[0]
+        if "txt" in log_entry:
             # a message
-            tks = tknzr.tokenize(line["txt"])
+            tks = tknzr.tokenize(log_entry["txt"])
             msg_token_counts.append(len(tks))
             cur_tokens += tks
-            all_tokens += tks
-            if line["role"] == "A":
-                prev_msg_count_A = line["playerMsgNumber"]
+            game_tokens += tks
+            if not game_beginning:
+                mid_tokens += tks
+            if log_entry["role"] == "A":
+                prev_msg_count_A = log_entry["playerMsgNumber"]
             else:
-                prev_msg_count_B = line["playerMsgNumber"]
-        if "currentEvent" in line:
-            cur_evt = line["currentEvent"]
+                prev_msg_count_B = log_entry["playerMsgNumber"]
+        if "currentEvent" in log_entry:
+            cur_evt = log_entry["currentEvent"]
             evt_key = list(cur_evt.keys())[0]
             if evt_key != "undo" and evt_key != "joker":
                 # image selection, tokens since last selection
                 # are put into category of image and game level
                 category = id_map[evt_key].split("/")[0]
-                tokens[category] = tokens.get(category, []) + cur_tokens
-                tokens[cur_game] = tokens.get(cur_game, []) + cur_tokens
+                tokens_by_cat_lvl[cur_game] = tokens_by_cat_lvl.get(
+                    cur_game, []) + cur_tokens
+                if not game_beginning:
+                    tokens_by_cat_lvl[category] = tokens_by_cat_lvl.get(
+                        category, []) + cur_tokens
+                    tokens_by_cat_lvl[evt_key] = tokens_by_cat_lvl.get(
+                        evt_key, []) + cur_tokens
                 cur_tokens = []
-        if "score" in line:
+                game_beginning = False
+        if "score" in log_entry:
             # end of game
-            if line["score"] >= 80:
-                game_stats["high_score"]["game_count"][cur_game] = 1 + game_stats["high_score"]["game_count"].get(
+            if log_entry["score"] >= 20:
+                game_stats["game_count"][cur_game] = 1 + game_stats["game_count"].get(
                     cur_game, 0)
-                game_stats["high_score"]["all_tokens"].extend(
-                    filterStopWords(all_tokens))
-                game_stats["high_score"]["msg_tokens_counts"].extend(
-                    msg_token_counts)
-                game_stats["high_score"]["msg_counts"][cur_game] = game_stats["high_score"]["msg_counts"].get(
+                game_stats["all_tokens"].extend(game_tokens)
+                game_stats["mid_tokens"].extend(
+                    filterStopWords(mid_tokens))
+                game_stats["msg_tokens_counts"][cur_game] = game_stats["msg_tokens_counts"].get(
+                    cur_game, []) + msg_token_counts
+                # game_stats["msg_tokens_counts"].extend(
+                #     msg_tokens_counts)
+                game_stats["msg_counts"][cur_game] = game_stats["msg_counts"].get(
                     cur_game, []) + [prev_msg_count_A]
-                game_stats["high_score"]["msg_counts"][cur_game] = game_stats["high_score"]["msg_counts"].get(
+                game_stats["msg_counts"][cur_game] = game_stats["msg_counts"].get(
                     cur_game, []) + [prev_msg_count_B]
-                game_stats["high_score"]["turn_counts"][cur_game] = game_stats["high_score"]["turn_counts"].get(
-                    cur_game, []) + [line["turnCount"]]
-                game_stats["high_score"]["game_durations"][cur_game] = game_stats["high_score"]["game_durations"].get(
-                    cur_game, []) + [line["gameSecs"]]
-                for k in tokens:
-                    game_stats["high_score"]["tokens"][k] = game_stats["high_score"]["tokens"].get(
-                        k, []) + filterStopWords(tokens[k])
+                game_stats["turn_counts"][cur_game] = game_stats["turn_counts"].get(
+                    cur_game, []) + [log_entry["turnCount"]]
+                game_stats["game_durations"][cur_game] = game_stats["game_durations"].get(
+                    cur_game, []) + [log_entry["gameSecs"]]
+                for k in tokens_by_cat_lvl:
+                    game_stats["tokens"][k] = game_stats["tokens"].get(
+                        k, []) + filterStopWords(tokens_by_cat_lvl[k])
 
             else:
-                game_stats["low_score"]["game_count"][cur_game] = 1 + game_stats["low_score"]["game_count"].get(
-                    cur_game, 0)
-                game_stats["low_score"]["all_tokens"].extend(
-                    filterStopWords(all_tokens))
+                # ignore low score games
+                pass
 
 
-print("total tokens {0}".format(len(
-    game_stats["high_score"]["all_tokens"]) + len(game_stats["low_score"]["all_tokens"])))
-print("distinct tokens {0}".format(len(set(
-    game_stats["high_score"]["all_tokens"] + game_stats["low_score"]["all_tokens"]))))
-print("number of games: high score {0} / low score {1}".format(
-    game_stats["high_score"]["game_count"], game_stats["low_score"]["game_count"]))
+print("total tokens {0}".format(len(game_stats["all_tokens"])))
+print("distinct tokens {0}".format(len(set(filterStopWords(
+    game_stats["all_tokens"])))))
+print("number of games: {0}".format(game_stats["game_count"]))
 
-# msglenfd = nltk.FreqDist(game_stats["high_score"]["msg_tokens_counts"])
+print(numpy.average(game_stats["game_durations"]["first"]) / 60)
+print(numpy.std(game_stats["game_durations"]["first"]) / 60)
+
+print(numpy.average(game_stats["turn_counts"]["second"]))
+print(numpy.std(game_stats["turn_counts"]["second"]))
+
+print(numpy.average(game_stats["msg_counts"]["second"]))
+print(numpy.std(game_stats["msg_counts"]["second"]))
+
+print(numpy.average(game_stats["msg_tokens_counts"]["first"]))
+print(numpy.std(game_stats["msg_tokens_counts"]["first"]))
+
+msg_tkn_counts = game_stats["msg_tokens_counts"]["first"] + game_stats["msg_tokens_counts"]["second"]
+plt.hist(msg_tkn_counts, bins=max(msg_tkn_counts), histtype="step")
+
+plt.ylabel('Count')
+plt.xlabel('Tokens per Message')
+plt.xlim(1, 22)
+plt.xticks([1,3,5,7,10,15,20])
+plt.show()
+
+
+
+# msglenfd = nltk.FreqDist(game_stats["msg_tokens_counts"])
 # msglenfd.plot(50, cumulative=False, title="Tokens / Message")
 
-# fd = nltk.FreqDist(game_stats["high_score"]["all_tokens"])
+# fd = nltk.FreqDist(game_stats["all_tokens"])
 # fd.plot(50, cumulative=False, title="All Tokens")
 
-# fd1 = nltk.FreqDist(game_stats["high_score"]["tokens"]["berry"])
+# fd1 = nltk.FreqDist(game_stats["tokens"]["berry"])
 # fd1.plot(50, cumulative=False, title="Tokens for Berries")
-fd2 = nltk.FreqDist(game_stats["high_score"]["tokens"]["dog"])
+fd2 = nltk.FreqDist(game_stats["tokens"]["dog"])
 fd2.plot(50, cumulative=False, title="Tokens for Dogs")
-# fd3 = nltk.FreqDist(game_stats["high_score"]["tokens"]["flower"])
+# fd3 = nltk.FreqDist(game_stats["tokens"]["flower"])
 # fd3.plot(50, cumulative=False, title="Tokens for Flowers")
-# fd4 = nltk.FreqDist(game_stats["high_score"]["tokens"]["bird"])
+# fd4 = nltk.FreqDist(game_stats["tokens"]["bird"])
 # fd4.plot(50, cumulative=False, title="Tokens for Birds")
 
-# fdg1 = nltk.FreqDist(game_stats["high_score"]["tokens"]["first"])
+# fdg1 = nltk.FreqDist(game_stats["tokens"]["first"])
 # fdg1.plot(50, cumulative=False)
-# fdg2 = nltk.FreqDist(game_stats["high_score"]["tokens"]["second"])
+# fdg2 = nltk.FreqDist(game_stats["tokens"]["second"])
 # fdg2.plot(50, cumulative=False)
 
 # bg = nltk.collocations.BigramCollocationFinder.from_words(filtered_tokens["berry"])
