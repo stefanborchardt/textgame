@@ -4,6 +4,7 @@ import os
 import fileinput
 import numpy
 import matplotlib.pyplot as plt
+import pandas
 
 tknzr = nltk.TweetTokenizer()
 # tknzr = nltk.WordPunctTokenizer()
@@ -123,36 +124,42 @@ print(numpy.std(game_stats["msg_counts"]["second"]))
 print(numpy.average(game_stats["msg_tokens_counts"]["first"]))
 print(numpy.std(game_stats["msg_tokens_counts"]["first"]))
 
-msg_tkn_counts = game_stats["msg_tokens_counts"]["first"] + game_stats["msg_tokens_counts"]["second"]
-plt.hist(msg_tkn_counts, bins=max(msg_tkn_counts), histtype="step")
+# msg_tkn_counts = game_stats["msg_tokens_counts"]["first"] + game_stats["msg_tokens_counts"]["second"]
+# plt.hist(msg_tkn_counts, bins=max(msg_tkn_counts), histtype="step")
 
-plt.ylabel('Count')
-plt.xlabel('Tokens per Message')
-plt.xlim(1, 22)
-plt.xticks([1,3,5,7,10,15,20])
-plt.show()
+# plt.ylabel('Count')
+# plt.xlabel('Tokens per Message')
+# plt.xlim(1, 22)
+# plt.xticks([1,3,5,7,10,15,20])
+# plt.show()
+
+mid_tokens = pandas.Series([t for t in game_stats["mid_tokens"] if len(t) > 2])
+# plt.ylabel('Count')
+# plt.xlabel('Tokens')
+# top_30 = mid_tokens.value_counts()[:30]
+# plt.xticks(range(30), rotation=70, fontsize=12, labels=top_30.keys().values)
+# plt.plot(top_30)
+# plt.show()
+
+freq = pandas.DataFrame(mid_tokens.value_counts(),
+                        columns=["md_count"])
+num_md_tokens = freq["md_count"].sum()
+freq["rel_freq"] = freq["md_count"] / num_md_tokens
 
 
+def add_column(df, img_class):
+    br_tokens = pandas.Series(
+        [t for t in game_stats["tokens"][img_class] if len(t) > 2])
+    df[img_class+"_count"] = br_tokens.value_counts()
+    num_br_tokens = df[img_class+"_count"].sum()
+    df[img_class+"_freq"] = df[img_class+"_count"] / num_br_tokens
+    df[img_class+"_diff"] = df[img_class+"_freq"] - freq["rel_freq"]
+    return df[df[img_class+"_diff"] > 0].sort_values(img_class+"_diff", ascending=False)
 
-# msglenfd = nltk.FreqDist(game_stats["msg_tokens_counts"])
-# msglenfd.plot(50, cumulative=False, title="Tokens / Message")
 
-# fd = nltk.FreqDist(game_stats["all_tokens"])
-# fd.plot(50, cumulative=False, title="All Tokens")
+print(add_column(freq, "berry")[:10])
+print(add_column(freq, "dog")[:10])
+print(add_column(freq, "flower")[:10])
+print(add_column(freq, "bird")[:10])
 
-# fd1 = nltk.FreqDist(game_stats["tokens"]["berry"])
-# fd1.plot(50, cumulative=False, title="Tokens for Berries")
-fd2 = nltk.FreqDist(game_stats["tokens"]["dog"])
-fd2.plot(50, cumulative=False, title="Tokens for Dogs")
-# fd3 = nltk.FreqDist(game_stats["tokens"]["flower"])
-# fd3.plot(50, cumulative=False, title="Tokens for Flowers")
-# fd4 = nltk.FreqDist(game_stats["tokens"]["bird"])
-# fd4.plot(50, cumulative=False, title="Tokens for Birds")
-
-# fdg1 = nltk.FreqDist(game_stats["tokens"]["first"])
-# fdg1.plot(50, cumulative=False)
-# fdg2 = nltk.FreqDist(game_stats["tokens"]["second"])
-# fdg2.plot(50, cumulative=False)
-
-# bg = nltk.collocations.BigramCollocationFinder.from_words(filtered_tokens["berry"])
-# bg.ngram_fd.plot(50, cumulative=False)
+pass
